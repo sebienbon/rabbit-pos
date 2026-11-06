@@ -196,7 +196,8 @@ export function closeTab(db, settings, tabId, { payment, charge = false }, user)
       lines.push({ product: i.name, category: i.category, qty: i.qty, unit: i.unit_price, total: i.qty * i.unit_price });
     if (tab.service) lines.push({ product: `Service ${settings.service_rate}%`, category: 'Service', qty: 1, unit: tab.service, total: tab.service });
     if (tab.tax) lines.push({ product: `Tax ${settings.tax_rate}%`, category: 'Tax', qty: 1, unit: tab.tax, total: tab.tax });
-    if (settings.sheet_sync) db.prepare('INSERT INTO outbox (type, payload, created_at) VALUES (?, ?, ?)').run('sale', JSON.stringify({
+    // Only a bill put on the guest goes to the Sheet (Guest bills); a bill paid here stays in the bar's own till.
+    if (settings.sheet_sync && charge) db.prepare('INSERT INTO outbox (type, payload, created_at) VALUES (?, ?, ?)').run('sale', JSON.stringify({
       tabId, at, guest: tab.kind === 'walkin' ? '' : tab.name, kind: tab.kind, pay, till: settings.till, author: user.author, lines,
     }), at);
     if (!charge) queueReceipt(db, settings, tabId);

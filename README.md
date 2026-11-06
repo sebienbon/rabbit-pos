@@ -11,7 +11,10 @@ Bills put on a guest go to the Reception Google Sheet as *Unpaid* and are paid a
 Try it with demo data: `npm run demo` (PINs: owner 1234, manager 1111, waiter 2222, reception 3333, cashier 4444).
 
 ## Google Sheet
-Set up once: see `bridge/README.md`. Options from the command line: `npm run config`.
+Bills put on a guest go to Rabbit-System's Guest bills through its web app, as the user `bar-pos` (tab UI_Users).
+Set up once on the reception PC:
+`npm run config -- sheet_url=<Rabbit-System /exec address> sheet_user=bar-pos sheet_password=<password>`
+then `npm run config -- check`. Bills paid at the bar stay in the POS.
 
 ## Tests
 `npm test`

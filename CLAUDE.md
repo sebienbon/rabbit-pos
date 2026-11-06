@@ -2,7 +2,8 @@
 
 Bar & restaurant POS of **Rabbit Tree** (hostel, Indonesia). Owner: Sébastien. UI language: **English**.
 Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception PWA on Google Apps Script + the
-"Reception - RABBIT TREE" Google Sheet). Do NOT modify or load Rabbit-System to work here: the only link is the Sheet.
+"Reception - RABBIT TREE" Google Sheet). Do NOT modify Rabbit-System: the POS talks to its existing web app API
+(dev/server/30.UI_api.gs: login / pull / push) as the user `bar-pos` of the UI_Users tab.
 
 ## Decisions (owner, Nov 2026)
 - Runs on the **reception PC** (Windows, little RAM) as a local Node server; tablets/phones use it over the wifi.
@@ -23,19 +24,20 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
 ## Layout
 - `server/db.js` schema + settings · `auth.js` PIN/roles · `orders.js` tabs, orders, totals, close (pay / charge)
 - `print.js` ESC/POS tickets + queue + TCP send · `app.js` HTTP API + SSE · `index.js` start · `seed.js` demo data
-- `sync.js` Sheet worker (guests in every 10 min, outbox out every 30 s, offline back-off) · `config.js` CLI options + `check`
-- `bridge/Code.gs` standalone Apps Script web app (ping, guests, sale, peek) + `bridge/README.md` setup
+- `sync.js` link with Rabbit-System (login, `pull` guests every 30 min, `push` op `sale` every 30 s, offline back-off,
+  re-login, new line ids after a `ts_collision`) · `config.js` CLI options + `check`
 - `public/pos.*` till screen (PIN + sell + bills + guest-order validation + "Sheet" chip when sales wait)
-- `test/core.test.js`, `test/sync.test.js` (runs Code.gs in node:vm on a fake Sheet) — `npm test` must stay green.
+- `test/core.test.js`, `test/sync.test.js` — `npm test` must stay green. sync tests run Rabbit-System's REAL
+  30.UI_api.gs in node:vm (`test/helpers/gas-fake.js`); set RABBIT_SYSTEM_GS=path/to/30.UI_api.gs, else 3 are skipped.
   Try the UI: `npm run demo` → http://localhost:8080
 
 ## Status / next steps
 1. ✅ Phase 1: server, roles, options, orders, tabs, printing queue, till screen, 11 tests.
-2. ✅ Sheet bridge (code + 4 tests). Every sale → tab `POS sales`; Unpaid (guest bill) → also `Entries`
-   (columns: date,type,sub,obj,qty,unit,total,real,author,unitCost,cost,realCost,guest,pay,ts,past,comment,_,status,seller).
-   Entries writing is OFF until script property `WRITE_ENTRIES=yes` (guest bills wait in the outbox meanwhile).
-   TO CONFIRM with the owner after deploy (`npm run config -- check` shows the preview): values of type ('Sale'),
-   sub (POS category), real, seller ('Bar POS'), status. `till: 'reception'` mapping to the reception shift still open.
+2. ✅ Sheet link via Rabbit-System's API (checked live 06/11: login ok, 143 guests). Only bills put on a guest go:
+   op `sale`, payment Unpaid, one line per item → Entries + Entries Manual (type Income, sub `sheet_category` 'Bar',
+   author 'Bar POS' without @ = no commission), shown in Guest bills. Paid bills stay in the POS (bar cash).
+   Account `bar-pos` (staff) created in UI_Users; password only in the POS settings (`npm run config`), never in git.
+   `till: 'reception'` mapping to the reception shift still open.
 3. Guest ordering pages (QR phone + self-service tablet) using `/api/client/*` (key in the link), photos upload.
 4. Owner options screen, catalog import from the Loyverse CSV export, users/PIN management, printer setup screen.
 5. Waiter phone screen, reception view of open bills, bar till shift open/close + cash count.

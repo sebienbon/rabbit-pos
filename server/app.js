@@ -17,7 +17,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 const clientFlags = s => ({ venue: s.venue_name, photos: s.photos, tables: s.tables_enabled, external: s.external_guests,
   qr: s.qr_ordering, tablet: s.tablet_ordering, validation: s.validation_required,
   service: s.service_enabled ? s.service_rate : 0, tax: s.tax_enabled ? s.tax_rate : 0 });
-const staffSettings = s => { const { client_key, sheet_secret, ...rest } = s; return rest; };
+const staffSettings = s => { const { client_key, sheet_password, sheet_token, ...rest } = s; return rest; };
 
 export function createApp(db) {
   const routes = [];

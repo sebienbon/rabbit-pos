@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS print_jobs (
   status TEXT NOT NULL DEFAULT 'waiting', tries INTEGER NOT NULL DEFAULT 0, error TEXT, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS outbox (
   id INTEGER PRIMARY KEY, type TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL,
-  sent_at TEXT, tries INTEGER NOT NULL DEFAULT 0, error TEXT, last_try TEXT);
+  sent_at TEXT, tries INTEGER NOT NULL DEFAULT 0, error TEXT, last_try TEXT, variant INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS log (
   id INTEGER PRIMARY KEY, at TEXT NOT NULL, user_id INTEGER, action TEXT NOT NULL, detail TEXT);
 `;
@@ -44,8 +44,12 @@ export const DEFAULT_SETTINGS = {
   tables_enabled: false,
   qr_ordering: true, tablet_ordering: true, external_guests: true, photos: true,
   sheet_sync: true,
-  sheet_url: '',                  // Apps Script web app address (bridge/Code.gs), ends with /exec
-  sheet_secret: '',               // same value as SECRET in the script properties
+  sheet_url: '',                  // Rabbit-System web app address (js/config.js API_URL), ends with /exec
+  sheet_user: '',                 // POS account of the UI_Users tab (role staff, author without @: no commission)
+  sheet_password: '',
+  sheet_device: 'POS-bar',        // device id shown in UI_Log
+  sheet_category: 'Bar',          // Entries sub-category (column C) of the guest bill lines
+  sheet_token: '',                // session, renewed by itself
   client_key: '',                 // secret in the QR link; set on first start
   till: 'bar',                    // 'bar' = its own cash drawer; 'reception' = counted in the reception shift
   payments: ['Cash', 'Card', 'QRIS'],
@@ -61,6 +65,7 @@ export function openDb(file = 'data/pos.db') {
   // Columns added after phase 1 (databases created before keep working).
   const has = (t, c) => db.prepare(`PRAGMA table_info(${t})`).all().some(r => r.name === c);
   if (!has('outbox', 'last_try')) db.exec('ALTER TABLE outbox ADD COLUMN last_try TEXT');
+  if (!has('outbox', 'variant')) db.exec('ALTER TABLE outbox ADD COLUMN variant INTEGER NOT NULL DEFAULT 0');
   return db;
 }
 

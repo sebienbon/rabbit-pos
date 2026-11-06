@@ -1,76 +1,68 @@
-// Google Sheet bridge: bridge/Code.gs runs here against a fake spreadsheet, behind a local HTTP server,
-// and the POS worker (server/sync.js) talks to it like it would to Google.
+// Link with Rabbit-System. The end-to-end tests run Rabbit-System's REAL server code (30.UI_api.gs, read from a
+// checkout of github.com/sebienbon/Rabbit-System next to this folder, or RABBIT_SYSTEM_GS=path) in node:vm on an
+// in-memory spreadsheet, behind a local HTTP server; they are skipped when that file is not there.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import vm from 'node:vm';
-import { readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { openDb, getSettings, setSettings } from '../server/db.js';
 import { createUser, login, userFromToken } from '../server/auth.js';
 import * as O from '../server/orders.js';
 import { seedDemo } from '../server/seed.js';
-import { pushOutbox, pullGuests, syncStatus } from '../server/sync.js';
+import { pushOutbox, pullGuests, syncStatus, saleOp, tsOf, resetSyncState } from '../server/sync.js';
+import { rabbitSystem } from './helpers/gas-fake.js';
 
-// ---- a tiny fake of the Google services used by Code.gs ----
-function fakeSheet(name, rows = []) {
-  const sh = { name, rows: rows.map(r => [...r]), frozen: 0 };
-  Object.assign(sh, {
-    getName: () => name,
-    getLastRow: () => sh.rows.length,
-    getLastColumn: () => Math.max(0, ...sh.rows.map(r => r.length)),
-    appendRow: r => sh.rows.push([...r]),
-    setFrozenRows: n => { sh.frozen = n; },
-    getRange: (row, col, nr = 1, nc = 1) => ({
-      getValues: () => sh.rows.slice(row - 1, row - 1 + nr).map(r => Array.from({ length: nc }, (_, i) => r[col - 1 + i] ?? '')),
-      getDisplayValues() { return this.getValues().map(r => r.map(v => v instanceof Date ? v.toISOString() : String(v))); },
-      setValues: vals => vals.forEach((v, i) => { sh.rows[row - 1 + i] = [...v]; }),
-    }),
-  });
-  return sh;
-}
-function bridge({ writeEntries = true } = {}) {
-  const ENTRIES_HEADER = 'date,type,sub,obj,qty,unit,total,real,author,unitCost,cost,realCost,guest,pay,ts,past,comment,_,status,seller'.split(',');
-  const tabs = {
-    Entries: fakeSheet('Entries', [ENTRIES_HEADER, ['2026-11-05', 'Sale', 'Room', 'Dorm', 1, 150000]]),
-    '24datafeed': fakeSheet('24datafeed', [['a', 'b', 'Guest name'], ['', '', 'Hiro Tanaka'], ['', '', ' Jonas  Keller '], ['', '', '']]),
-    'New guest': fakeSheet('New guest', [['', '', '', '', '', 'Name'], ['', '', '', '', '', 'Maya Smith'], ['', '', '', '', '', 'hiro tanaka']]),
+const GS = [process.env.RABBIT_SYSTEM_GS, '../../Rabbit-System/dev/server/30.UI_api.gs', '../../rabbit-system/dev/server/30.UI_api.gs']
+  .filter(Boolean).map(p => p.startsWith('/') ? p : fileURLToPath(new URL(p, import.meta.url))).find(existsSync);
+const real = { skip: GS ? false : 'Rabbit-System checkout not found (set RABBIT_SYSTEM_GS)' };
+
+test('line ids: 17 digits in UTC+8, ids change after a refusal', () => {
+  assert.equal(tsOf(Date.parse('2026-11-06T05:54:15.561Z')), '20261106135415561');
+  const row = { id: 3, created_at: '2026-11-06T05:00:00.000Z', payload: JSON.stringify({ tabId: 9, at: '2026-11-06T05:00:00.000Z', guest: 'Hiro',
+    lines: [{ product: 'Bintang', category: 'Beer', qty: 2, unit: 40000 }, { product: 'Service 5%', category: 'Service', qty: 1, unit: 4000 }] }) };
+  const a = saleOp(row, {}), b = saleOp({ ...row, variant: 1 }, { sheet_category: 'F&B' });
+  assert.equal(a.payload.payment, 'Unpaid'); assert.equal(a.payload.lines[0].category, 'Bar');
+  assert.deepEqual(a.payload.lines.map(l => l.ts), ['20261106130000000', '20261106130000001']);
+  assert.notEqual(a.id, b.id); assert.notEqual(a.payload.lines[0].ts, b.payload.lines[0].ts); assert.equal(b.payload.lines[0].category, 'F&B');
+});
+
+const H = n => [Array.from({ length: n }, (_, i) => 'col' + i)];
+function sheetData() {
+  const pay = ['', '', '', '', '', '', '', '', '', '', '', 'Service', 'Transport', 'Tour', 'Other', '', 'Payment type'];
+  return {
+    UI_Users: [['Username', 'Display name', 'Role', 'Author email', 'Set new password here', 'Password hash', 'Salt', 'Active'],
+      ['bar-pos', 'Bar POS', 'staff', 'Bar POS', 'pw-123456', '', '', true]],
+    UI_Log: H(10), UI_Shifts: H(13), Entries: H(20), 'Entries Manual': H(17), 'Cashouts&Cor': H(9), Settlements: H(10), Protect: H(5),
+    'Data activities': [pay, ...['Cash', 'Card', 'Unpaid'].map(p => { const r = Array(17).fill(''); r[16] = p; return r; })],
+    '24datafeed': [['', '', 'Guest'], ['', '', 'Hiro Tanaka'], ['', '', 'Jonas Keller']],
+    'New guest': [['', '', '', '', '', 'Name'], ['', '', '', '', '', 'Maya Smith']],
   };
-  const ss = { getName: () => 'Reception - RABBIT TREE', getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = fakeSheet(n)) };
-  const props = { SHEET_ID: 'sheet1', SECRET: 's3cret', WRITE_ENTRIES: writeEntries ? 'yes' : '' };
-  const ctx = {
-    PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null }) },
-    SpreadsheetApp: { openById: id => { assert.equal(id, 'sheet1'); return ss; } },
-    LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-    ContentService: { MimeType: { JSON: 'json' }, createTextOutput: t => ({ text: t, setMimeType() { return this; } }) },
-    Logger: { log() {} }, JSON, Date, String, Math, Error,
-  };
-  vm.createContext(ctx);
-  vm.runInContext(readFileSync(new URL('../bridge/Code.gs', import.meta.url), 'utf8'), ctx);
-  const post = body => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(body) } }).text);
-  return { tabs, props, post };
 }
 
-// Local web server in front of the fake script (down = no internet).
-async function serve(b) {
-  const st = { down: false, calls: 0 };
+// Rabbit-System behind a local web server (down = no internet).
+async function serve() {
+  const rs = rabbitSystem(GS, sheetData());
+  const st = { down: false, calls: [] };
   const server = http.createServer((req, res) => {
     let body = ''; req.on('data', c => body += c);
     req.on('end', () => {
-      st.calls++;
+      const b = JSON.parse(body); st.calls.push(b.action);
       if (st.down) { res.writeHead(502, { 'Content-Type': 'text/html' }); return res.end('<html>Bad gateway</html>'); }
-      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(b.post(JSON.parse(body))));
+      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(rs.doPost(b)));
     });
   }).listen(0);
   await new Promise(r => server.once('listening', r));
-  const stop = () => { server.closeAllConnections(); server.close(); };
-  return { st, server: { close: stop }, url: `http://127.0.0.1:${server.address().port}/exec` };
+  const close = () => { server.closeAllConnections(); server.close(); };
+  return { rs, st, close, url: `http://127.0.0.1:${server.address().port}/exec` };
 }
 
 function pos(url) {
+  resetSyncState();
   const db = openDb(':memory:');
   createUser(db, { name: 'Owner', role: 'owner', pin: '1234' });
   seedDemo(db);
-  setSettings(db, { sheet_url: url, sheet_secret: 's3cret' });
+  setSettings(db, { sheet_url: url, sheet_user: 'bar-pos', sheet_password: 'pw-123456' });
   const c = userFromToken(db, login(db, '4444', 't').token);
   const pid = n => db.prepare('SELECT id FROM products WHERE name = ?').get(n).id;
   const gid = n => db.prepare('SELECT rowid AS id FROM guests WHERE name = ?').get(n).id;
@@ -82,91 +74,76 @@ function pos(url) {
   };
   return { db, s: () => getSettings(db), sell, gid };
 }
+const unpaid = rs => rs.tabs.Entries.rows.slice(1).filter(r => r[13] === 'Unpaid');
 
-test('bridge script: secret, guests, guest bill to Entries, paid sale only in POS sales, no double write', () => {
-  const b = bridge();
-  assert.match(b.post({ secret: 'nope', action: 'ping' }).error, /bad secret/);
-  assert.equal(b.post({ secret: 's3cret', action: 'ping' }).sheet, 'Reception - RABBIT TREE');
-  assert.deepEqual(b.post({ secret: 's3cret', action: 'guests' }).guests, ['Hiro Tanaka', 'Jonas Keller', 'Maya Smith']);
-
-  const sale = { at: '2026-11-06T05:00:00.000Z', tabId: 7, guest: 'Hiro Tanaka', kind: 'guest', pay: 'Unpaid', till: 'bar', author: 'Komang',
-    lines: [{ product: 'Bintang', category: 'Beer & drinks', qty: 2, unit: 40000, total: 80000 }, { product: 'Burger', category: 'Food', qty: 1, unit: 85000, total: 85000 }] };
-  assert.deepEqual(b.post({ secret: 's3cret', action: 'sale', id: 'x1', data: sale }), { ok: true, entries: 2 });
-  assert.deepEqual(b.post({ secret: 's3cret', action: 'sale', id: 'x1', data: sale }), { ok: true, duplicate: true });
-  const en = b.tabs.Entries.rows;
-  assert.equal(en.length, 4);
-  const row = Object.fromEntries(en[0].map((h, i) => [h, en[2][i]]));
-  assert.equal(row.obj, 'Bintang'); assert.equal(row.qty, 2); assert.equal(row.total, 80000);
-  assert.equal(row.guest, 'Hiro Tanaka'); assert.equal(row.pay, 'Unpaid'); assert.equal(row.comment, 'POS bill #7');
-  assert.equal(en[2].length, 20);
-
-  const paid = { ...sale, tabId: 8, guest: '', kind: 'walkin', pay: 'Cash', lines: sale.lines.slice(0, 1) };
-  assert.deepEqual(b.post({ secret: 's3cret', action: 'sale', id: 'x2', data: paid }), { ok: true, entries: 0 });
-  assert.equal(b.tabs.Entries.rows.length, 4, 'a sale paid at the bar does not touch Entries');
-  assert.equal(b.tabs['POS sales'].rows.length, 1 + 2 + 1);
-
-  const peek = b.post({ secret: 's3cret', action: 'peek' });
-  assert.equal(peek.header[13], 'pay'); assert.equal(peek.preview[13], 'Unpaid'); assert.equal(peek.preview.length, peek.header.length);
-});
-
-test('bridge script: guest bills are refused (and wait) while Entries writing is off', () => {
-  const b = bridge({ writeEntries: false });
-  const d = { at: new Date().toISOString(), tabId: 1, guest: 'Maya Smith', pay: 'Unpaid', lines: [{ product: 'Mojito', category: 'Beer & drinks', qty: 1, unit: 85000, total: 85000 }] };
-  assert.match(b.post({ secret: 's3cret', action: 'sale', id: 'y', data: d }).error, /WRITE_ENTRIES/);
-  assert.equal(b.tabs.Entries.rows.length, 2);
-  assert.equal(b.tabs['POS sales'], undefined);
-});
-
-test('POS worker: guest list in, sales out, waits when offline, sends later once', async () => {
-  const b = bridge();
-  const { st, server, url } = await serve(b);
-  const p = pos(url);
+test('Rabbit-System: guests in, guest bill out as Unpaid lines, paid bills stay in the POS', real, async () => {
+  const { rs, close, url } = await serve();
   try {
+    const p = pos(url);
+    assert.equal(await pullGuests(p.db, p.s()), 3);
+    assert.deepEqual(p.db.prepare('SELECT name FROM guests ORDER BY name').all().map(r => r.name), ['Hiro Tanaka', 'Jonas Keller', 'Maya Smith']);
+    assert.ok(p.s().sheet_token, 'session kept');
 
-  assert.equal(await pullGuests(p.db, p.s()), 3);
-  assert.deepEqual(p.db.prepare('SELECT name FROM guests ORDER BY name').all().map(r => r.name), ['Hiro Tanaka', 'Jonas Keller', 'Maya Smith']);
+    p.sell({ guestId: p.gid('Maya Smith') }, [['Mojito', 2], ['Burger', 1]], { charge: true });
+    p.sell({ walkin: true }, [['Espresso', 1]], { payment: 'Cash' });
+    assert.equal(p.db.prepare('SELECT COUNT(*) n FROM outbox').get().n, 1, 'a bill paid at the bar is not sent');
+    assert.equal(await pushOutbox(p.db, p.s()), 1);
 
-  p.sell({ guestId: p.gid('Maya Smith') }, [['Mojito', 2]], { charge: true });
-  st.down = true;
-  p.sell({ walkin: true }, [['Espresso', 1]], { payment: 'Cash' });
-  assert.equal(await pushOutbox(p.db, p.s()), 0);
-  let y = syncStatus(p.db, p.s());
-  assert.equal(y.waiting, 2); assert.match(y.error, /502/);
-  const calls = st.calls;
-  assert.equal(await pushOutbox(p.db, p.s()), 0); assert.equal(st.calls, calls, 'waits before trying again');
-
-  st.down = false;
-  assert.equal(await pushOutbox(p.db, p.s(), { force: true }), 2);
-  y = syncStatus(p.db, p.s()); assert.equal(y.waiting, 0); assert.equal(y.error, null);
-  const maya = b.tabs.Entries.rows.filter(r => r[12] === 'Maya Smith');
-  assert.equal(maya.length, 1); assert.equal(maya[0][6], 170000);
-  assert.equal(b.tabs['POS sales'].rows.length, 3);
-
-  // Sent again (answer lost): written once.
-  p.db.exec('UPDATE outbox SET sent_at = NULL');
-  assert.equal(await pushOutbox(p.db, p.s(), { force: true }), 2);
-  assert.equal(b.tabs['POS sales'].rows.length, 3);
-
-  // An empty guest answer does not wipe the list.
-  b.tabs['24datafeed'].rows.length = 1; b.tabs['New guest'].rows.length = 1;
-  assert.equal(await pullGuests(p.db, p.s()), 0);
-  assert.equal(p.db.prepare('SELECT COUNT(*) n FROM guests').get().n, 3);
-  } finally { server.close(); }
+    const rows = unpaid(rs);
+    assert.deepEqual(rows.map(r => [r[1], r[2], r[3], r[4], r[6], r[12], r[19]]),
+      [['Income', 'Bar', 'Mojito', 2, 170000, 'Maya Smith', ''], ['Income', 'Bar', 'Burger', 1, 85000, 'Maya Smith', '']]);
+    assert.equal(rs.tabs['Entries Manual'].rows.length, 3);
+    assert.deepEqual(syncStatus(p.db, p.s()).waiting, 0);
+  } finally { close(); }
 });
 
-test('POS worker: a refused guest bill does not block the paid sales behind it', async () => {
-  const b = bridge({ writeEntries: false });
-  const { server, url } = await serve(b);
-  const p = pos(url);
+test('Rabbit-System: offline, then sent once; expired session; a line id already used gets new ids', real, async () => {
+  const { rs, st, close, url } = await serve();
   try {
-  await pullGuests(p.db, p.s());
-  p.sell({ guestId: p.gid('Hiro Tanaka') }, [['Bintang', 1]], { charge: true });
-  p.sell({ walkin: true }, [['Espresso', 1]], { payment: 'QRIS' });
-  assert.equal(await pushOutbox(p.db, p.s()), 1);
-  const y = syncStatus(p.db, p.s());
-  assert.equal(y.waiting, 1); assert.match(y.error, /WRITE_ENTRIES/);
-  b.props.WRITE_ENTRIES = 'yes';
-  assert.equal(await pushOutbox(p.db, p.s(), { force: true }), 1);
-  assert.equal(b.tabs.Entries.rows.at(-1)[12], 'Hiro Tanaka');
-  } finally { server.close(); }
+    const p = pos(url);
+    await pullGuests(p.db, p.s());
+    st.down = true;
+    p.sell({ guestId: p.gid('Hiro Tanaka') }, [['Bintang', 3]], { charge: true });
+    assert.equal(await pushOutbox(p.db, p.s()), 0);
+    assert.match(syncStatus(p.db, p.s()).error, /No connection|502/);
+    const n = st.calls.length;
+    assert.equal(await pushOutbox(p.db, p.s()), 0); assert.equal(st.calls.length, n, 'waits before trying again');
+
+    st.down = false;
+    for (const k of Object.keys(rs.props)) if (k.startsWith('UIS_')) delete rs.props[k]; // session expired on the server
+    assert.equal(await pushOutbox(p.db, p.s(), { force: true }), 1);
+    assert.ok(st.calls.slice(n).includes('login'), 'logged in again by itself');
+    assert.equal(unpaid(rs).length, 1);
+
+    // Answer lost, sent again: written once.
+    p.db.exec('UPDATE outbox SET sent_at = NULL');
+    assert.equal(await pushOutbox(p.db, p.s(), { force: true }), 1);
+    assert.equal(unpaid(rs).length, 1);
+
+    // The reception already has a line with the id the POS would use: refused, then sent with new ids.
+    const id = p.sell({ guestId: p.gid('Jonas Keller') }, [['Pisang goreng', 1]], { charge: true });
+    const row = p.db.prepare('SELECT * FROM outbox WHERE sent_at IS NULL').get();
+    const ts = saleOp(row, p.s()).payload.lines[0].ts;
+    const clash = Array(17).fill(''); clash[0] = new Date(); clash[1] = 'Income'; clash[3] = 'Room'; clash[12] = 'Someone'; clash[13] = 'Cash'; clash[14] = ts;
+    rs.tabs.Entries.rows.push(clash);
+    assert.equal(await pushOutbox(p.db, p.s(), { force: true }), 0);
+    assert.match(syncStatus(p.db, p.s()).error, /already has a different line/);
+    assert.equal(await pushOutbox(p.db, p.s(), { force: true }), 1);
+    const j = unpaid(rs).filter(r => r[12] === 'Jonas Keller');
+    assert.equal(j.length, 1); assert.notEqual(j[0][14], ts); assert.match(j[0][16], new RegExp(`#${id}\\b`));
+  } finally { close(); }
+});
+
+test('Rabbit-System: wrong password is shown on the till and nothing is lost', real, async () => {
+  const { rs, close, url } = await serve();
+  try {
+    const p = pos(url);
+    setSettings(p.db, { sheet_password: 'nope' });
+    p.sell({ guestId: p.gid('Hiro Tanaka') }, [['Bintang', 1]], { charge: true });
+    assert.equal(await pushOutbox(p.db, p.s()), 0);
+    assert.match(syncStatus(p.db, p.s()).error, /Wrong username or password/);
+    setSettings(p.db, { sheet_password: 'pw-123456' });
+    assert.equal(await pushOutbox(p.db, p.s(), { force: true }), 1);
+    assert.equal(unpaid(rs).length, 1);
+  } finally { close(); }
 });
