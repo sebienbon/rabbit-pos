@@ -35,6 +35,10 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
   30.UI_api.gs in node:vm (`test/helpers/gas-fake.js`); set RABBIT_SYSTEM_GS=path/to/30.UI_api.gs, else 3 are skipped.
   Try the UI: `npm run demo` → http://localhost:8080
 
+## Set-aside sub-tasks
+`BACKLOG.md` (in French, for the owner): every sub-task met on the way and left for later goes there (where, why, what to do),
+and is ticked when done. Read it before calling the project finished.
+
 ## Status / next steps
 1. ✅ Phase 1: server, roles, options, orders, tabs, printing queue, till screen, 11 tests.
 2. ✅ Sheet link via Rabbit-System's API (checked live 06/11: login ok, 143 guests). Only bills put on a guest go:
@@ -44,8 +48,7 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
    `till: 'reception'` mapping to the reception shift still open.
 2b. ✅ Bar/reception money rules (doc "Rabbit POS — décisions caisse bar / réception"): every payment belongs to the till that
    receives it; bar cash counted per service; handed-over cash → op `bar_cashout` (Entries Manual "BAR Cash-out", never Entries);
-   cards checked per day for both terminals. OPEN (Rabbit-System side, not ours): its `card_settlement` compares both
-   terminals with Entries cards only, so bar card sales show as a difference there until it subtracts them.
+   cards checked per day for both terminals. Card settlement fix on the Rabbit-System side: BACKLOG.md #1.
 3. Guest ordering pages (QR phone + self-service tablet) using `/api/client/*` (key in the link), photos upload.
 4. Owner options screen, catalog import from the Loyverse CSV export, users/PIN management, printer setup screen.
 5. Waiter phone screen, reception view of open bills, bar till shift open/close + cash count.
