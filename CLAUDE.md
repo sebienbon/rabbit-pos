@@ -47,6 +47,12 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
   apply: adds, new prices, never deletes; variants "Name (Option)"; food-word categories → kitchen), Staff & PINs (owner;
   PINs unique, disabling logs out, one owner kept), Printers (address/port/58-80 mm + test ticket), Google Sheet (owner).
   `GET /api/settings` never returns passwords/keys (`secrets: {key: set?}`); an empty password in PUT keeps the old one.
+- `public/waiter.*` waiter phone (`/waiter.html`, PIN pad): open bills grid, guest orders to accept/refuse, new order
+  (hostel guest / external / walk-in, table), add items, print the bill (not paid), put a guest's bill on the room.
+  Perm `charge` (waiter included) ≠ `take_payment`: only a hostel guest's tab can be charged; externals pay at the bar.
+- `public/reception.*` reception view (`/reception.html`; the till sends the reception role there): open bar bills with
+  lines (when, where, drink/food), print the bill, put on the room bill; bills charged today/yesterday (`/api/tabs-charged`).
+  The reception takes no money for the bar here: it collects room bills in Rabbit-System's Guest bills as usual.
 - `public/pos.*` till screen (PIN + sell + bills + guest-order validation + "Sheet" chip when sales wait)
 - `test/core.test.js`, `test/sync.test.js` — `npm test` must stay green. sync tests run Rabbit-System's REAL
   30.UI_api.gs in node:vm (`test/helpers/gas-fake.js`); set RABBIT_SYSTEM_GS=path/to/30.UI_api.gs, else 3 are skipped.
@@ -69,5 +75,5 @@ and is ticked when done. Read it before calling the project finished.
    cards checked per day for both terminals. Card settlement fix on the Rabbit-System side: BACKLOG.md #1.
 3. ✅ Guest ordering pages (QR phone + self-service tablet) + printable QR codes. Photo upload screen → phase 4.
 4. ✅ Back office: options, menu + photos, Loyverse import, staff/PINs, printers, Google Sheet settings.
-5. Waiter phone screen, reception view of open bills, bar till shift open/close + cash count.
+5. ✅ Waiter phone, reception view of the bar's bills (bar service open/close + cash count was done in 2b).
 6. Windows install: Node + `start.bat` at boot, daily backup of `data/pos.db`.

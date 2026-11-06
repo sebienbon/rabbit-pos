@@ -57,6 +57,13 @@ export function createApp(db, { photosDir = PHOTOS_DIR, port = 8080 } = {}) {
   route('GET', '/api/tabs/:id', ({ user, s, p }) => (need(user, 'view_tabs'), O.getTab(db, s, +p.id)));
   route('POST', '/api/tabs/:id/pay', ({ user, s, p, body }) => O.closeTab(db, s, +p.id, { payment: body.payment }, user));
   route('POST', '/api/tabs/:id/charge', ({ user, s, p }) => O.closeTab(db, s, +p.id, { charge: true }, user));
+  route('POST', '/api/tabs/:id/print-bill', ({ user, s, p }) => O.printBill(db, s, +p.id, user));
+  // Reception: bills put on guests since the start of yesterday (local time).
+  route('GET', '/api/tabs-charged', ({ user, s }) => {
+    need(user, 'view_tabs');
+    const day = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+    return O.chargedSince(db, s, new Date(Date.parse(day + 'T00:00:00+08:00') - 86400000).toISOString());
+  });
   // Bar service: open with the cash count, close with the count and the cash handed over (BAR Cash-out).
   route('POST', '/api/shift/open', ({ user, body }) => T.startShift(db, user, body));
   route('POST', '/api/shift/close', async ({ user, s, body }) => {

@@ -263,3 +263,21 @@ test('HTTP: product photos kept on this PC, devices keep app files and photos', 
     assert.equal((await fetch(base + '/manifest.webmanifest')).headers.get('content-type'), 'application/manifest+json');
   } finally { server.closeAllConnections(); server.close(); }
 });
+
+test('waiter phone and reception: waiter puts a guest on the room bill but takes no money; bill printed before paying', async () => {
+  const { db, as, prod, guest } = fresh();
+  const s = getSettings(db), w = as('2222'), rec = as('3333');
+  const o = O.createOrder(db, s, { guestId: guest('Hiro Tanaka'), items: [{ productId: prod('Bintang'), qty: 2 }] }, w);
+  const e = O.createOrder(db, s, { externalName: 'Lucas', items: [{ productId: prod('Mojito'), qty: 1 }] }, w);
+  assert.throws(() => O.closeTab(db, s, e.tabId, { payment: 'Cash' }, w), /cannot do this/, 'a waiter takes no money');
+  assert.throws(() => O.closeTab(db, s, e.tabId, { charge: true }, w), /external guest pays at the bar/);
+  O.printBill(db, s, o.tabId, rec);
+  const job = db.prepare("SELECT label, data FROM print_jobs WHERE label LIKE '%not paid%'").get();
+  assert.match(job.label, new RegExp(`Bill #${o.tabId}`)); assert.match(Buffer.from(job.data).toString('latin1'), /NOT PAID YET/);
+  assert.equal(O.getTab(db, s, o.tabId).status, 'open', 'printing the bill closes nothing');
+  O.closeTab(db, s, o.tabId, { charge: true }, w);
+  assert.equal(O.getTab(db, s, o.tabId).payment, 'Unpaid');
+  const recent = O.chargedSince(db, s, new Date(Date.now() - 3600000).toISOString());
+  assert.deepEqual(recent.map(t => t.id), [o.tabId]);
+  assert.throws(() => O.printBill(db, s, o.tabId, rec), /already closed/);
+});

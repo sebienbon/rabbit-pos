@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rabbit POS · Reception</title>
+<meta name="theme-color" content="#9B5DE5">
+<link rel="stylesheet" href="admin.css">
+<style>
+  /* Reception view of the bar's open bills, from the mockup "Réception – notes clients". */
+  .cols { flex: 1; display: flex; min-height: 0; }
+  .list { width: 420px; flex: none; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; border-right: 1px solid var(--line); overflow-y: auto; }
+  .detail { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 20px 28px; overflow-y: auto; }
+  .search { display: flex; align-items: center; gap: 10px; padding: 0 16px; height: 48px; background: #fff; border: 1px solid rgba(155,93,229,.22); border-radius: 16px; }
+  .search input { flex: 1; border: 0; outline: 0; background: transparent; font-weight: 700; font-size: 15px; }
+  .note { width: 100%; min-height: 76px; border-radius: 18px; display: flex; align-items: center; gap: 14px; padding: 0 16px; text-align: left;
+    border: 1px solid rgba(155,93,229,.2); background: #fff; }
+  .note[aria-current="true"] { border: 0; background: linear-gradient(110deg, #9B5DE5, #E05BB5 60%, #FF8A3D); color: #fff; box-shadow: 0 10px 24px rgba(155,93,229,.3); }
+  .badge { width: 48px; height: 48px; flex: none; border-radius: 14px; display: grid; place-items: center; font-family: var(--display); font-size: 15px; font-weight: 800; }
+  .note[aria-current="true"] .badge { background: rgba(255,255,255,.25) !important; color: #fff !important; }
+  .note .t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .note .t b { font-size: 16px; }
+  .note .t small { font-size: 13px; font-weight: 600; opacity: .8; }
+  .note .sum { font-weight: 800; }
+  .sect { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; font-weight: 800; color: var(--ink-soft); margin-top: 8px; }
+  .lines { background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 4px 20px; box-shadow: 0 8px 24px rgba(51,48,92,.06); }
+  .line { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid #F1ECF8; }
+  .line:last-child { border-bottom: 0; }
+  .line .d { width: 100px; color: var(--ink-soft); font-size: 14px; font-weight: 600; }
+  .line .w { width: 110px; color: var(--ink-soft); font-size: 14px; font-weight: 600; }
+  .line .ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; }
+  .line .ic.bar { background: #DCEFFF; color: #0B4F80; } .line .ic.kitchen { background: #FFE8D6; color: #8A3B00; }
+  .line .n { flex: 1; font-weight: 700; } .line .p { font-weight: 800; }
+  .line.void { opacity: .45; text-decoration: line-through; }
+  .foot { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .foot .tt { flex: 1; min-width: 200px; }
+  .foot .big { font-family: var(--display); font-size: 34px; font-weight: 800; }
+  .btn.xl { min-height: 64px; padding: 0 26px; font-size: 16px; border-radius: 18px; }
+  .empty { margin: auto; text-align: center; color: var(--ink-soft); font-weight: 700; }
+  @media (max-width: 860px) { .cols { flex-direction: column; } .list { width: auto; border-right: 0; border-bottom: 1px solid var(--line); max-height: 45vh; } .detail { padding: 16px; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <img src="img/logo-name-white.png" alt="Rabbit Tree">
+  <h1>Reception · Bar bills</h1>
+  <span class="grow"></span>
+  <span class="chip" id="sync"></span>
+  <span class="chip me" id="me"></span>
+</header>
+<div class="cols" id="app"></div>
+<div id="toast" class="toast hidden" role="status"></div>
+<script type="module" src="reception.js"></script>
+</body>
+</html>

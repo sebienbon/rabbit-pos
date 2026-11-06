@@ -8,6 +8,8 @@ export const ROLES = ['owner', 'manager', 'cashier', 'waiter', 'reception'];
 const PERMS = {
   sell:       ['owner', 'manager', 'cashier', 'waiter'],
   take_payment: ['owner', 'manager', 'cashier', 'reception'],
+  // Putting a bill on a hostel guest takes no money: waiters may do it from their phone.
+  charge:     ['owner', 'manager', 'cashier', 'reception', 'waiter'],
   validate:   ['owner', 'manager', 'cashier', 'waiter'],
   void_item:  ['owner', 'manager'],
   view_tabs:  ['owner', 'manager', 'cashier', 'waiter', 'reception'],

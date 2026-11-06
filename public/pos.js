@@ -63,7 +63,12 @@ function logout() {
 $('meBtn').onclick = logout;
 
 // ---------- state ----------
-async function load() { S = await api('/api/state'); draw(); }
+async function load() {
+  S = await api('/api/state');
+  // The reception has its own view of the bar's bills.
+  if (S.user.role === 'reception') { location.href = '/reception.html'; return; }
+  draw();
+}
 async function start() {
   await load();
   $('pin').classList.add('hidden'); $('main').classList.remove('hidden');

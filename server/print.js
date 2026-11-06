@@ -57,6 +57,20 @@ export function queueOrderTickets(db, settings, orderId) {
   }
 }
 
+// Bill before paying: same layout, "NOT PAID", no cash drawer.
+export function queueBill(db, settings, tab) {
+  const t = new Ticket(widthFor(settings, 'receipt'));
+  t.align('center').big(true).bold(true).text(settings.venue_name).big(false).bold(false)
+    .text(new Date().toLocaleString('en-GB')).text(`Bill #${tab.id}${tab.table_no ? ' - Table ' + tab.table_no : ''}`).align('left').line();
+  if (tab.kind !== 'walkin') t.text(tab.name);
+  for (const o of tab.orders) if (o.status === 'sent') for (const i of o.items) if (!i.voided) t.pair(`${i.qty} x ${i.name}`, rp(i.qty * i.unit_price));
+  t.line().pair('Subtotal', rp(tab.subtotal));
+  if (tab.service) t.pair(`Service ${settings.service_rate}%`, rp(tab.service));
+  if (tab.tax) t.pair(`Tax ${settings.tax_rate}%`, rp(tab.tax));
+  t.bold(true).big(true).pair('TOTAL', rp(tab.total)).big(false).bold(false).text('').align('center').bold(true).text('NOT PAID YET').bold(false).cut();
+  addJob(db, 'receipt', t, `Bill #${tab.id} (not paid)`);
+}
+
 export function queueReceipt(db, settings, tabId) {
   const tab = db.prepare('SELECT * FROM tabs WHERE id = ?').get(tabId);
   const items = db.prepare(`SELECT i.name, i.qty, i.unit_price FROM order_items i JOIN orders o ON o.id = i.order_id

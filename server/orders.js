@@ -3,7 +3,7 @@
 import { EventEmitter } from 'node:events';
 import { PosError, now, tx, logAction } from './db.js';
 import { need } from './auth.js';
-import { queueOrderTickets, queueReceipt } from './print.js';
+import { queueOrderTickets, queueReceipt, queueBill } from './print.js';
 import { openShift } from './shift.js';
 
 export const events = new EventEmitter();
@@ -105,6 +105,23 @@ export function getTab(db, settings, id) {
   return { ...tab, orders, ...sums };
 }
 
+// The bill on paper before paying (nothing is closed).
+export function printBill(db, settings, tabId, user) {
+  need(user, 'view_tabs');
+  const tab = getTab(db, settings, tabId);
+  if (tab.status !== 'open') throw new PosError('closed', 'This tab is already closed');
+  if (tab.total <= 0) throw new PosError('empty', 'Nothing on this tab yet');
+  queueBill(db, settings, tab);
+  logAction(db, user.id, 'print_bill', { tabId });
+  return { ok: true };
+}
+
+// Bills put on guests recently (reception: what arrived from the bar).
+export function chargedSince(db, settings, sinceIso) {
+  return db.prepare("SELECT id FROM tabs WHERE status = 'charged' AND closed_at >= ? ORDER BY closed_at DESC LIMIT 100").all(sinceIso)
+    .map(t => getTab(db, settings, t.id));
+}
+
 export function listTabs(db, settings, status = 'open') {
   return db.prepare('SELECT id FROM tabs WHERE status = ? ORDER BY opened_at DESC LIMIT 200').all(status)
     .map(t => getTab(db, settings, t.id));
@@ -182,7 +199,7 @@ export function voidItem(db, itemId, user) {
 // Paid here (bar till), or charged to the guest: the lines go to the sheet as "Unpaid"
 // and the guest settles at the reception, in Rabbit-System's Guest bills.
 export function closeTab(db, settings, tabId, { payment, charge = false }, user) {
-  need(user, 'take_payment');
+  need(user, charge ? 'charge' : 'take_payment');
   const res = tx(db, () => {
     const tab = getTab(db, settings, tabId);
     if (tab.status !== 'open') throw new PosError('closed', 'This tab is already closed');
@@ -194,7 +211,8 @@ export function closeTab(db, settings, tabId, { payment, charge = false }, user)
     if (!charge && settings.till === 'bar' && !shift) throw new PosError('no_shift', 'Open the bar first (count the cash in the drawer)');
     let pay;
     if (charge) {
-      if (tab.kind === 'walkin') throw new PosError('no_guest', 'A walk-in sale must be paid now');
+      // Only a hostel guest has a bill at the reception; an external guest pays at the bar.
+      if (tab.kind !== 'guest') throw new PosError('no_guest', tab.kind === 'walkin' ? 'A walk-in sale must be paid now' : 'An external guest pays at the bar');
       pay = 'Unpaid';
     } else {
       if (!settings.payments.includes(payment)) throw new PosError('bad_payment', 'Unknown payment type');

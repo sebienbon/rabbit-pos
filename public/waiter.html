@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rabbit POS · Waiter</title>
+<meta name="theme-color" content="#9B5DE5">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="menu.css">
+<style>
+  /* Waiter phone, from the mockup "Mobile serveur" (Maquettes POS). Shares the guest pages' look (menu.css). */
+  .w { min-height: 100dvh; display: flex; flex-direction: column; padding-bottom: 104px; }
+  .hero .online { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.2); }
+  .dot { width: 10px; height: 10px; border-radius: 5px; background: #19C3B1; }
+  .dot.off { background: #FFB4C0; }
+  .body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .alert { border: 1px solid #FFC9A3; background: #FFF0E3; color: #6B2C00; border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .alert b { font-size: 16px; }
+  .alert .items { font-size: 14px; font-weight: 600; color: #8A3B00; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .two .btn { min-height: 48px; font-size: 15px; }
+  .btn.refuse { border: 2px solid #FF8A3D; background: #fff; color: #8A3B00; }
+  .tabs { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+  .tab { min-height: 84px; border-radius: 18px; padding: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
+    border: 0; background: linear-gradient(135deg, #0E9C8D, #19A6C9); color: #fff; box-shadow: 0 6px 14px rgba(25,195,177,.25); }
+  .tab.wait { background: #FF8A3D; color: #3D1700; box-shadow: none; }
+  .tab b { font-family: var(--display); font-size: 18px; line-height: 1.1; word-break: break-word; }
+  .tab small { font-size: 12px; font-weight: 700; }
+  .bottom { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 20px calc(18px + env(safe-area-inset-bottom)); background: rgba(255,255,255,.94); border-top: 1px solid var(--line); display: flex; gap: 10px; }
+  .bottom .btn { flex: 1; }
+  .btn.new { background: linear-gradient(110deg, #9B5DE5, #E05BB5 60%, #FF8A3D); color: #fff; box-shadow: 0 10px 24px rgba(155,93,229,.3); }
+  .back { width: 44px; height: 44px; border-radius: 14px; background: rgba(255,255,255,.22); color: #fff; display: grid; place-items: center; flex: none; }
+  .order { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 10px 14px; }
+  .order .h { display: flex; justify-content: space-between; font-size: 13px; font-weight: 800; color: var(--ink-soft); }
+  .order .l { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; font-weight: 700; }
+  .order .l.void { text-decoration: line-through; opacity: .5; }
+  .pill2 { font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: var(--ok-bg); color: var(--ok); }
+  .pill2.pending { background: var(--warn-bg); color: var(--warn); }
+  .pill2.rejected { background: #FFE0E5; color: #B3243C; }
+  .tot { display: flex; justify-content: space-between; font-family: var(--display); font-size: 26px; font-weight: 800; }
+  .pick { display: flex; flex-direction: column; gap: 6px; }
+  .prow { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #fff; border: 1px solid rgba(155,93,229,.16); border-radius: 16px; }
+  .prow .n { flex: 1; font-weight: 800; }
+  .prow .p { font-size: 13px; color: var(--ink-soft); font-weight: 700; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .seg button { min-height: 48px; border-radius: 14px; border: 1px solid rgba(155,93,229,.3); background: #fff; font-weight: 800; }
+  .seg button[aria-pressed="true"] { background: var(--pick); color: #fff; border-color: transparent; }
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 320px; margin: 0 auto; }
+  .pad button { height: 64px; border-radius: 18px; background: #fff; border: 1px solid var(--line); font-family: var(--display); font-size: 26px; font-weight: 800; }
+  .pins { display: flex; gap: 12px; justify-content: center; margin: 10px 0; }
+  .pins span { width: 16px; height: 16px; border-radius: 8px; border: 2px solid var(--violet); }
+  .pins span.on { background: var(--violet); }
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite"></main>
+<script type="module" src="waiter.js"></script>
+</body>
+</html>
