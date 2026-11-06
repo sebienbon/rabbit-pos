@@ -28,5 +28,8 @@ createApp(db).listen(PORT, () => {
 setInterval(() => processPrintJobs(db, getSettings(db)).catch(e => console.error('print', e)), 2000);
 
 // Google Sheet: sales out every 30 s, guest list in every 10 min (only when the bridge is set up).
-startSync(db, () => getSettings(db));
+// Demo: real guest names are read, but demo bills are never written to the real Sheet.
+const demo = process.argv.includes('--demo');
+startSync(db, () => getSettings(db), { send: !demo });
+if (demo && sheetReady(getSettings(db))) console.log('Demo: guest names come from the Sheet; bills are NOT sent to it.');
 if (!sheetReady(getSettings(db))) console.log('Google Sheet link not set up yet: see bridge/README.md');

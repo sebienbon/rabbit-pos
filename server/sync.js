@@ -133,8 +133,8 @@ export function syncStatus(db, s) {
 }
 
 // Started by index.js: guest bills every 30 s; guest list every 30 min (a Rabbit-System pull reads a lot).
-export function startSync(db, getSettings) {
-  const push = () => pushOutbox(db, getSettings()).catch(e => console.error('sheet', e));
+export function startSync(db, getSettings, { send = true } = {}) {
+  const push = () => send ? pushOutbox(db, getSettings()).catch(e => console.error('sheet', e)) : null;
   const guests = () => pullGuests(db, getSettings()).then(n => n != null && console.log(`sheet: ${n} guests`)).catch(e => console.error('sheet', e));
   guests(); push();
   return [setInterval(push, 30000), setInterval(guests, 1800000)];
