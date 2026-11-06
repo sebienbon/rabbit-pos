@@ -6,6 +6,7 @@ import { createUser } from './auth.js';
 import { createApp } from './app.js';
 import { processPrintJobs } from './print.js';
 import { seedDemo } from './seed.js';
+import { startSync, sheetReady } from './sync.js';
 
 const PORT = Number(process.env.PORT || 8080);
 const db = openDb(process.env.POS_DB || 'data/pos.db');
@@ -25,3 +26,7 @@ createApp(db).listen(PORT, () => {
 
 // Printers: try every 2 s.
 setInterval(() => processPrintJobs(db, getSettings(db)).catch(e => console.error('print', e)), 2000);
+
+// Google Sheet: sales out every 30 s, guest list in every 10 min (only when the bridge is set up).
+startSync(db, () => getSettings(db));
+if (!sheetReady(getSettings(db))) console.log('Google Sheet link not set up yet: see bridge/README.md');

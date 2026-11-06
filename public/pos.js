@@ -87,8 +87,21 @@ function draw() {
   $('grid').innerHTML = can('sell') ? list.map(p =>
     `<button class="tile c-${color(p.categoryId)}" data-p="${p.id}">${esc(p.name)}<small>${rp(p.price)}</small></button>`).join('')
     || '<div class="empty">No item</div>' : '<div class="empty">Your role takes payments: open a bill from “Open bills”.</div>';
-  drawPending(); drawTicket();
+  drawPending(); drawTicket(); drawSync();
 }
+// Google Sheet link: shown only when sales wait or something went wrong.
+function drawSync() {
+  const y = S.sync || {}, b = $('sheetBtn');
+  b.classList.toggle('hidden', !y.on || (!y.waiting && !y.error));
+  b.classList.toggle('warn', !!y.error);
+  b.textContent = y.waiting ? `Sheet: ${y.waiting} waiting` : 'Sheet: problem';
+  b.title = y.error ? `Google Sheet: ${y.error} (tap to try again)` : 'Google Sheet: tap to send now';
+}
+$('sheetBtn').onclick = run(async () => {
+  const r = await api('/api/sync', { method: 'POST' });
+  toast(r.waiting ? `Still ${r.waiting} waiting: ${r.error || 'try later'}` : 'Sent to the Google Sheet');
+  await load();
+});
 $('cats').onclick = e => { const c = e.target.closest('button')?.dataset.c; if (c != null) { cat = +c; draw(); } };
 $('search').oninput = e => { query = e.target.value.trim().toLowerCase(); draw(); };
 $('grid').onclick = e => {

@@ -118,3 +118,5 @@ h1, h2 { font-family: var(--display); font-weight: 800; margin: 0; }
   .thead { padding: 10px 12px; } .lines { padding: 0 12px; } .sum { padding: 10px 12px 12px; }
   .btn { height: 52px; }
 }
+
+.chip.warn { background: #FFE3E7; color: #B3263A; }

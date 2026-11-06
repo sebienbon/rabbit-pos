@@ -7,6 +7,7 @@ import { PosError, getSettings, setSettings, logAction } from './db.js';
 import { login, logout, userFromToken, need, can } from './auth.js';
 import * as O from './orders.js';
 import { printQueue, reprint } from './print.js';
+import { syncStatus, pushOutbox, pullGuests } from './sync.js';
 
 const PUBLIC = fileURLToPath(new URL('../public/', import.meta.url));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -16,7 +17,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 const clientFlags = s => ({ venue: s.venue_name, photos: s.photos, tables: s.tables_enabled, external: s.external_guests,
   qr: s.qr_ordering, tablet: s.tablet_ordering, validation: s.validation_required,
   service: s.service_enabled ? s.service_rate : 0, tax: s.tax_enabled ? s.tax_rate : 0 });
-const staffSettings = s => { const { client_key, ...rest } = s; return rest; };
+const staffSettings = s => { const { client_key, sheet_secret, ...rest } = s; return rest; };
 
 export function createApp(db) {
   const routes = [];
@@ -29,7 +30,15 @@ export function createApp(db) {
   route('GET', '/api/state', ({ user, s }) => {
     need(user, 'view_tabs');
     return { user, settings: staffSettings(s), catalog: O.catalog(db), tabs: O.listTabs(db, s),
-      pending: O.pendingOrders(db), print: can(user, 'printers') ? printQueue(db) : [] };
+      pending: O.pendingOrders(db), print: can(user, 'printers') ? printQueue(db) : [], sync: syncStatus(db, s) };
+  });
+  // Send waiting sales and refresh the guest list now (button on the till, or after the internet comes back).
+  route('POST', '/api/sync', async ({ user, s }) => {
+    need(user, 'view_tabs');
+    const sent = await pushOutbox(db, s, { force: true });
+    const guests = await pullGuests(db, s);
+    O.events.emit('change', { type: 'sync' });
+    return { sent, guests, ...syncStatus(db, s) };
   });
   route('GET', '/api/guests', ({ user, query }) => (need(user, 'view_tabs'), O.searchGuests(db, query.get('q'))));
   route('POST', '/api/orders', ({ user, s, body }) => O.createOrder(db, s, body, user, 'pos'));

@@ -4,10 +4,13 @@
   "private": true,
   "type": "module",
   "description": "Bar & restaurant POS for Rabbit Tree, runs on the reception PC, syncs to the Reception Google Sheet",
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "start": "node --no-warnings server/index.js",
     "demo": "node --no-warnings server/index.js --demo",
-    "test": "node --no-warnings --test test/*.test.js"
+    "test": "node --no-warnings --test test/*.test.js",
+    "config": "node --no-warnings server/config.js"
   }
 }

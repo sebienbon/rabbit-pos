@@ -23,15 +23,19 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
 ## Layout
 - `server/db.js` schema + settings · `auth.js` PIN/roles · `orders.js` tabs, orders, totals, close (pay / charge)
 - `print.js` ESC/POS tickets + queue + TCP send · `app.js` HTTP API + SSE · `index.js` start · `seed.js` demo data
-- `public/pos.*` till screen (PIN + sell + bills + guest-order validation)
-- `test/core.test.js` — run `npm test` (must stay green). Try the UI: `npm run demo` → http://localhost:8080
+- `sync.js` Sheet worker (guests in every 10 min, outbox out every 30 s, offline back-off) · `config.js` CLI options + `check`
+- `bridge/Code.gs` standalone Apps Script web app (ping, guests, sale, peek) + `bridge/README.md` setup
+- `public/pos.*` till screen (PIN + sell + bills + guest-order validation + "Sheet" chip when sales wait)
+- `test/core.test.js`, `test/sync.test.js` (runs Code.gs in node:vm on a fake Sheet) — `npm test` must stay green.
+  Try the UI: `npm run demo` → http://localhost:8080
 
 ## Status / next steps
 1. ✅ Phase 1: server, roles, options, orders, tabs, printing queue, till screen, 11 tests.
-2. Sheet bridge: standalone Apps Script (own doPost, opens the Sheet by id) → `guests` pull + `sale` push writing
-   `Entries` rows like Rabbit-System's sale handler (columns E in 30.UI_api.gs: date,type,sub,obj,qty,unit,total,real,
-   author,unitCost,cost,realCost,guest,pay,ts,past,comment,_,status,seller). Worker sends `outbox` rows.
-   `till: 'reception'` mapping to the reception shift still to define with the owner.
+2. ✅ Sheet bridge (code + 4 tests). Every sale → tab `POS sales`; Unpaid (guest bill) → also `Entries`
+   (columns: date,type,sub,obj,qty,unit,total,real,author,unitCost,cost,realCost,guest,pay,ts,past,comment,_,status,seller).
+   Entries writing is OFF until script property `WRITE_ENTRIES=yes` (guest bills wait in the outbox meanwhile).
+   TO CONFIRM with the owner after deploy (`npm run config -- check` shows the preview): values of type ('Sale'),
+   sub (POS category), real, seller ('Bar POS'), status. `till: 'reception'` mapping to the reception shift still open.
 3. Guest ordering pages (QR phone + self-service tablet) using `/api/client/*` (key in the link), photos upload.
 4. Owner options screen, catalog import from the Loyverse CSV export, users/PIN management, printer setup screen.
 5. Waiter phone screen, reception view of open bills, bar till shift open/close + cash count.

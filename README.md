@@ -10,6 +10,9 @@ Bills put on a guest go to the Reception Google Sheet as *Unpaid* and are paid a
 
 Try it with demo data: `npm run demo` (PINs: owner 1234, manager 1111, waiter 2222, reception 3333, cashier 4444).
 
+## Google Sheet
+Set up once: see `bridge/README.md`. Options from the command line: `npm run config`.
+
 ## Tests
 `npm test`
 
