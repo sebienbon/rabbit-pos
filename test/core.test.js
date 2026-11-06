@@ -65,11 +65,11 @@ test('same guest = same open tab; tickets split bar / kitchen', () => {
 test('client order waits for a waiter only when validation is on', () => {
   const { db, as, prod, guest } = fresh();
   const item = [{ productId: prod('Mojito'), qty: 1 }];
-  const o1 = O.createOrder(db, getSettings(db), { guestId: guest('Hiro Tanaka'), items: item }, null, 'qr');
+  const o1 = O.createOrder(db, getSettings(db), { guestId: guest('Hiro Tanaka'), guestName: 'Hiro T.', items: item }, null, 'qr');
   assert.equal(o1.status, 'sent');
   setSettings(db, { validation_required: true });
   const s = getSettings(db);
-  const o2 = O.createOrder(db, s, { guestId: guest('Hiro Tanaka'), items: item }, null, 'tablet');
+  const o2 = O.createOrder(db, s, { guestId: guest('Hiro Tanaka'), guestName: 'Hiro T.', items: item }, null, 'tablet');
   assert.equal(o2.status, 'pending');
   assert.equal(O.pendingOrders(db).length, 1);
   const before = db.prepare('SELECT COUNT(*) n FROM print_jobs').get().n;
@@ -78,7 +78,7 @@ test('client order waits for a waiter only when validation is on', () => {
   assert.equal(db.prepare('SELECT COUNT(*) n FROM print_jobs').get().n, before + 1);
   assert.throws(() => O.decideOrder(db, s, o2.id, true, as('2222')), /already handled/);
   setSettings(db, { qr_ordering: false });
-  assert.throws(() => O.createOrder(db, getSettings(db), { guestId: guest('Hiro Tanaka'), items: item }, null, 'qr'), /turned off/);
+  assert.throws(() => O.createOrder(db, getSettings(db), { guestId: guest('Hiro Tanaka'), guestName: 'Hiro T.', items: item }, null, 'qr'), /turned off/);
 });
 
 test('charge to the guest sends Unpaid lines for Guest bills; walk-in must pay', () => {
@@ -165,9 +165,30 @@ test('HTTP: staff token and the client ordering key', async () => {
   assert.ok(menu.body.products.length > 5); assert.equal(menu.body.flags.service, 0);
   const [g] = (await call('/api/client/guests?key=k3y&q=hiro')).body;
   const pid = menu.body.products[0].id;
-  const o = await call('/api/client/orders?key=k3y', { method: 'POST', body: JSON.stringify({ guestId: g.id, items: [{ productId: pid, qty: 1 }], tabId: 999 }) });
+  assert.equal(g.name, 'Hiro T.');
+  const order = extra => call('/api/client/orders?key=k3y', { method: 'POST', body: JSON.stringify({ guestId: g.id, guestName: g.name, items: [{ productId: pid, qty: 1 }], ...extra }) });
+  const o = await order({ tabId: 999 });
   assert.equal(o.status, 200); assert.equal(o.body.status, 'sent');
-  server.close();
+  assert.equal((await call(`/api/client/orders/${o.body.id}?key=k3y`)).body.status, 'sent');
+  assert.equal((await call(`/api/client/orders/${o.body.id}?key=nope`)).status, 403);
+  // The phone shows a name: if the list changed and that id is now someone else, the guest must choose again.
+  assert.equal((await order({ guestName: 'Martin D.' })).status, 409);
+
+  // Guest list refreshed from the Sheet: ids of guests still there do not change.
+  const ids = () => Object.fromEntries(db.prepare('SELECT rowid AS id, name FROM guests').all().map(r => [r.name, r.id]));
+  const before = ids();
+  O.replaceGuests(db, ['Newcomer Smith', 'Hiro Tanaka', 'Jonas Keller']);
+  const after = ids();
+  assert.equal(after['Hiro Tanaka'], before['Hiro Tanaka']); assert.equal(after['Jonas Keller'], before['Jonas Keller']);
+  assert.equal(after['Martin Dupont'], undefined); assert.ok(after['Newcomer Smith']);
+  assert.equal((await order({})).status, 200);
+
+  // Staff page for the QR codes: owner/manager only.
+  assert.equal((await call('/api/staff/order-links', { headers: { Authorization: 'Bearer ' + token } })).status, 403);
+  const own = (await call('/api/login', { method: 'POST', body: JSON.stringify({ pin: '1234' }) })).body.token;
+  const links = await call('/api/staff/order-links', { headers: { Authorization: 'Bearer ' + own } });
+  assert.equal(links.body.key, 'k3y'); assert.ok(Array.isArray(links.body.bases));
+  server.closeAllConnections(); server.close();
 });
 
 test('bar service: opening count, cash expected, difference, BAR Cash-out sent, cards of the day', () => {
@@ -209,7 +230,7 @@ test('bar service: opening count, cash expected, difference, BAR Cash-out sent, 
 test('HTTP: product photos kept on this PC, devices keep app files and photos', async () => {
   const { db, prod } = fresh();
   const dir = mkdtempSync(join(tmpdir(), 'pos-'));
-  const server = createApp(db, { dataDir: dir }).listen(0);
+  const server = createApp(db, { photosDir: join(dir, 'photos') }).listen(0);
   await new Promise(r => server.once('listening', r));
   const base = `http://127.0.0.1:${server.address().port}`;
   try {

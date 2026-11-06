@@ -19,19 +19,25 @@ export function catalog(db, { includeInactive = false } = {}) {
 }
 
 // ---------- guests (copied from the sheet: 24datafeed and New guest) ----------
+// Guests keep their id while they stay in the list (a phone may hold it between two refreshes):
+// update who is still there, add the new ones, remove the ones who left.
 export function replaceGuests(db, list) {
   tx(db, () => {
-    db.exec('DELETE FROM guests');
-    const ins = db.prepare('INSERT OR IGNORE INTO guests (name, room, updated_at) VALUES (?, ?, ?)');
+    const keep = new Map();
     for (const g of list) {
       const name = String(typeof g === 'string' ? g : g.name || '').trim();
-      if (name) ins.run(name, typeof g === 'object' ? g.room || null : null, now());
+      if (name && !keep.has(name)) keep.set(name, typeof g === 'object' ? g.room || null : null);
     }
+    const at = now();
+    const upd = db.prepare('UPDATE guests SET room = ?, updated_at = ? WHERE name = ?');
+    const ins = db.prepare('INSERT INTO guests (name, room, updated_at) VALUES (?, ?, ?)');
+    for (const [name, room] of keep) if (!upd.run(room, at, name).changes) ins.run(name, room, at);
+    for (const { name } of db.prepare('SELECT name FROM guests').all()) if (!keep.has(name)) db.prepare('DELETE FROM guests WHERE name = ?').run(name);
   });
 }
 
 // Clients only see first name + initial, and only after typing 2 letters.
-const mask = name => {
+export const mask = name => {
   const [first, ...rest] = name.split(/\s+/);
   return rest.length ? `${first} ${rest.map(w => w[0].toUpperCase() + '.').join(' ')}` : first;
 };
@@ -56,7 +62,7 @@ function findOpenTab(db, kind, name) {
   return db.prepare("SELECT * FROM tabs WHERE status = 'open' AND kind = ? AND name = ?").get(kind, name);
 }
 
-function resolveTab(db, settings, { tabId, guestId, externalName, walkin, table }, user, source) {
+function resolveTab(db, settings, { tabId, guestId, guestName, externalName, walkin, table }, user, source) {
   if (tabId) {
     const t = db.prepare('SELECT * FROM tabs WHERE id = ?').get(tabId);
     if (!t) throw new PosError('not_found', 'Tab not found', 404);
@@ -66,7 +72,9 @@ function resolveTab(db, settings, { tabId, guestId, externalName, walkin, table 
   let kind, name;
   if (guestId) {
     const g = db.prepare('SELECT rowid AS id, name FROM guests WHERE rowid = ?').get(guestId);
-    if (!g) throw new PosError('not_found', 'Guest not found', 404);
+    if (!g) throw new PosError('not_found', 'Guest not found, please choose again', 404);
+    // A guest's phone sends the name it showed: if the list changed in between, it must choose again.
+    if (CLIENT_SOURCES.includes(source) && mask(g.name) !== guestName) throw new PosError('guest_changed', 'Please choose your name again', 409);
     kind = 'guest'; name = g.name;
   } else if (externalName) {
     if (!settings.external_guests) throw new PosError('disabled', 'External guests are turned off');

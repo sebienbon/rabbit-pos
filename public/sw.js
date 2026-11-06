@@ -1,7 +1,7 @@
 // Keeps the app and the photos on the device (only where the browser allows it: localhost or https).
 // On the wifi address (http://192.168…) browsers refuse service workers: the server's cache headers do the job there.
-const V = 'rabbit-pos-1';
-const SHELL = ['/', '/pos.html', '/pos.css', '/pos.js', '/manifest.webmanifest', '/img/logo-mark-white.png', '/img/logo-name-white.png',
+const V = 'rabbit-pos-2';
+const SHELL = ['/', '/pos.html', '/pos.css', '/pos.js', '/manifest.webmanifest', '/menu.html', '/menu.css', '/menu.js', '/img/logo-mark-white.png', '/img/logo-name-white.png',
   '/fonts/nunito-latin-400-normal.woff2', '/fonts/nunito-latin-700-normal.woff2', '/fonts/nunito-latin-800-normal.woff2',
   '/fonts/baloo-2-latin-700-normal.woff2', '/fonts/baloo-2-latin-800-normal.woff2'];
 

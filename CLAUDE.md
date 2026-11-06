@@ -28,8 +28,15 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
   re-login, new line ids after a `ts_collision`) · `config.js` CLI options + `check`
 - `shift.js` bar service: open (cash count, gap vs what was left) / close (counted, handed over = BAR Cash-out, difference),
   day report (cards of the bar). Bar till: taking money needs an open service; a guest bill does not.
-- Photos: `POST /api/products/:id/photo` (raw JPEG/PNG/WebP ≤ 3 MB) → `data/photos/p<id>-<hash>.<ext>`, served immutable.
+- Photos: kept **in git** in `photos/` (owner's choice, 06/11): `POST /api/products/:id/photo` (raw JPEG/PNG/WebP ≤ 3 MB)
+  → `photos/p<id>-<hash>.<ext>`, served by the PC at /photos/ (immutable). Keep them ~800 px, < 300 KB.
   Devices: ETag/304 on app files; service worker `public/sw.js` + manifest only where allowed (localhost/https, not http://192.168…).
+- `public/menu.*` guest ordering, one page: phone from the QR (`/menu.html?key=…&table=…`) and self-service tablet
+  (`&mode=tablet`, resets 20 s after an order / 2 min idle). EN/FR/ID. Guest = room bill; external = pays at the bar.
+  Phone sends the masked name it showed (`guestName`): server refuses (409) if that id is now someone else.
+  Guest ids stay stable across Sheet refreshes (`replaceGuests` upserts). Order status: `GET /api/client/orders/:id`.
+- `public/qr.html` printable QR codes (owner/manager token from the till; `GET /api/staff/order-links`),
+  `public/vendor/qrcode.mjs` (qrcode-generator 2.0.4, MIT, vendored).
 - `public/pos.*` till screen (PIN + sell + bills + guest-order validation + "Sheet" chip when sales wait)
 - `test/core.test.js`, `test/sync.test.js` — `npm test` must stay green. sync tests run Rabbit-System's REAL
   30.UI_api.gs in node:vm (`test/helpers/gas-fake.js`); set RABBIT_SYSTEM_GS=path/to/30.UI_api.gs, else 3 are skipped.
@@ -49,7 +56,7 @@ and is ticked when done. Read it before calling the project finished.
 2b. ✅ Bar/reception money rules (doc "Rabbit POS — décisions caisse bar / réception"): every payment belongs to the till that
    receives it; bar cash counted per service; handed-over cash → op `bar_cashout` (Entries Manual "BAR Cash-out", never Entries);
    cards checked per day for both terminals. Card settlement fix on the Rabbit-System side: BACKLOG.md #1.
-3. Guest ordering pages (QR phone + self-service tablet) using `/api/client/*` (key in the link), photos upload.
+3. ✅ Guest ordering pages (QR phone + self-service tablet) + printable QR codes. Photo upload screen → phase 4.
 4. Owner options screen, catalog import from the Loyverse CSV export, users/PIN management, printer setup screen.
 5. Waiter phone screen, reception view of open bills, bar till shift open/close + cash count.
 6. Windows install: Node + `start.bat` at boot, daily backup of `data/pos.db`.

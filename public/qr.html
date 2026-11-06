@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rabbit POS · QR codes</title>
+<link rel="stylesheet" href="menu.css">
+<style>
+  body { background: #FFF7ED; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 18px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 16px; background: #fff; border-radius: 20px; border: 1px solid var(--line); }
+  .bar label { display: flex; flex-direction: column; gap: 6px; font-weight: 800; font-size: 14px; flex: 1 1 200px; }
+  .bar input, .bar select { height: 48px; border-radius: 14px; border: 2px solid var(--violet); padding: 0 12px; font-weight: 700; background: #fff; font: inherit; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .qr { background: #fff; border-radius: 22px; border: 1px solid var(--line); padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; break-inside: avoid; }
+  .qr .top { width: 100%; border-radius: 14px; background: var(--hero); color: #fff; padding: 10px; font-family: var(--display); font-size: 22px; font-weight: 800; }
+  .qr svg { width: 100%; max-width: 220px; height: auto; }
+  .qr small { font-weight: 700; color: var(--ink-soft); word-break: break-all; font-size: 11px; }
+  .qr b { font-size: 15px; }
+  .tablet { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 14px 16px; background: var(--ok-bg); color: var(--ok); border-radius: 16px; font-weight: 700; }
+  .tablet a { color: var(--ok); word-break: break-all; }
+  @media print { .bar, .noprint { display: none !important; } body { background: #fff; } .wrap { padding: 0; } .qr { border: 1px solid #ccc; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="hero noprint" style="border-radius: 22px"><span class="mark"><img src="img/logo-mark-white.png" alt=""></span>
+    <div class="grow"><h1>QR codes for ordering</h1><div class="sub">Print them for the tables. Phones must be on the hostel wifi.</div></div></header>
+  <div id="msg" class="err" role="alert"></div>
+  <section class="bar" id="bar" hidden>
+    <label>Address of this PC on the wifi<select id="base"></select></label>
+    <label>Wifi name printed on the cards<input id="wifi" placeholder="e.g. RabbitTree-Guest"></label>
+    <label id="tablesBox">Tables (e.g. 1-12, Bar, Terrace)<input id="tables" value="1-10"></label>
+    <button class="btn go" id="printBtn" style="flex: 0 0 auto">Print</button>
+  </section>
+  <div class="tablet noprint" id="tablet" hidden></div>
+  <section class="cards" id="cards"></section>
+</main>
+<script type="module">
+import qrcode from './vendor/qrcode.mjs';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const get = k => { try { return localStorage.getItem(k); } catch { return null; } };
+const set = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+const svg = text => { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); };
+// "1-12, Bar" -> ["1", …, "12", "Bar"]
+const tableList = s => s.split(',').map(x => x.trim()).filter(Boolean).flatMap(x => {
+  const m = x.match(/^(\d+)\s*-\s*(\d+)$/);
+  return m && +m[2] >= +m[1] && +m[2] - +m[1] < 100 ? Array.from({ length: +m[2] - +m[1] + 1 }, (_, i) => String(+m[1] + i)) : [x.slice(0, 20)];
+});
+
+let L;
+try {
+  const r = await fetch('/api/staff/order-links', { headers: { Authorization: 'Bearer ' + get('token') } });
+  L = await r.json();
+  if (!r.ok) throw new Error(r.status === 401 ? 'Log in on the till first (owner or manager), then open this page again.' : L.message);
+} catch (e) { $('msg').textContent = e.message || 'No connection to the POS server'; throw e; }
+
+const here = location.port ? `${location.protocol}//${location.hostname}:${location.port}` : location.origin;
+const bases = [...new Set([...L.bases, here])].filter(b => !/localhost|127\.0\.0\.1/.test(b) || !L.bases.length);
+$('base').innerHTML = bases.map(b => `<option>${esc(b)}</option>`).join('');
+$('base').value = get('qrBase') && bases.includes(get('qrBase')) ? get('qrBase') : bases[0];
+$('wifi').value = get('qrWifi') || '';
+$('tables').value = get('qrTables') || '1-10';
+$('tablesBox').hidden = !L.tables;
+$('bar').hidden = false;
+
+function draw() {
+  set('qrBase', $('base').value); set('qrWifi', $('wifi').value); set('qrTables', $('tables').value);
+  const link = table => `${$('base').value}/menu.html?key=${encodeURIComponent(L.key)}${table ? '&table=' + encodeURIComponent(table) : ''}`;
+  const wifi = $('wifi').value.trim();
+  const card = (title, url) => `<article class="qr"><div class="top">${esc(title)}</div>${svg(url)}
+    <b>Scan to order · Scannez pour commander</b>${wifi ? `<span>Wifi: <b>${esc(wifi)}</b></span>` : ''}<small>${esc(url)}</small></article>`;
+  $('cards').innerHTML = L.tables ? tableList($('tables').value).map(t => card('Table ' + t, link(t))).join('') : card('Rabbit Tree', link());
+  const tab = `${$('base').value}/menu.html?key=${encodeURIComponent(L.key)}&mode=tablet`;
+  $('tablet').hidden = false;
+  $('tablet').innerHTML = `Self-service tablet: open <a href="${esc(tab)}">${esc(tab)}</a> on the tablet, then add it to the home screen.`;
+}
+['base', 'wifi', 'tables'].forEach(id => $(id).addEventListener('input', draw));
+$('printBtn').onclick = () => window.print();
+draw();
+</script>
+</body>
+</html>

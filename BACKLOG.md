@@ -17,6 +17,18 @@ Une entrée par sujet : où ça se corrige, pourquoi, et ce qu'il faut faire. Co
 - **Problème :** en mode caisse unique, les ventes payées devraient compter dans le service de la réception de Rabbit-System, ce qui n'est pas défini.
 - **Noté le :** 06/11/2026
 
+### 3. [ ] Photos ajoutées depuis le PC → GitHub
+- **Où :** caisse (back-office, phase 4) + mise à jour du PC.
+- **Problème :** les photos sont gardées dans le dossier `photos/` du dépôt GitHub (choix du 06/11). Une photo ajoutée depuis le PC de réception est bien enregistrée dans ce dossier, mais elle n'arrive pas toute seule sur GitHub, et une future mise à jour du PC doit la garder.
+- **À faire :** décider comment elles montent sur GitHub (envoi automatique avec un jeton GitHub, ou tu me les envoies et je les ajoute), et réduire chaque photo (~800 px, < 300 Ko) dans l'écran d'ajout.
+- **Noté le :** 06/11/2026
+
+### 4. [ ] Commande par QR : les téléphones doivent être sur le wifi de l'hôtel
+- **Où :** réseau / matériel.
+- **Problème :** le QR ouvre l'adresse du PC de réception sur le wifi (http://192.168…). Un client en 4G ne peut pas commander. L'adresse du PC doit aussi rester fixe (sinon les QR imprimés ne marchent plus).
+- **À faire :** donner une adresse IP fixe au PC dans la box (réservation DHCP), imprimer le nom du wifi sur les cartes (prévu sur la page des QR codes).
+- **Noté le :** 06/11/2026
+
 ## Réglé
 
 _(rien pour l'instant)_

@@ -2,7 +2,8 @@
 import http from 'node:http';
 import { readFile, writeFile, unlink, mkdir, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { join, normalize, extname, resolve, basename } from 'node:path';
+import { join, normalize, extname, basename } from 'node:path';
+import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { PosError, getSettings, setSettings, logAction } from './db.js';
 import { login, logout, userFromToken, need, can } from './auth.js';
@@ -12,7 +13,7 @@ import { syncStatus, pushOutbox, pullGuests } from './sync.js';
 import * as T from './shift.js';
 
 const PUBLIC = fileURLToPath(new URL('../public/', import.meta.url));
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
 
 // What a guest's phone or the self-service tablet may know about the options.
@@ -21,9 +22,11 @@ const clientFlags = s => ({ venue: s.venue_name, photos: s.photos, tables: s.tab
   service: s.service_enabled ? s.service_rate : 0, tax: s.tax_enabled ? s.tax_rate : 0 });
 const staffSettings = s => { const { client_key, sheet_password, sheet_token, ...rest } = s; return rest; };
 
-// Product photos live on this PC, next to the database (data/photos), and are saved with it — never in git.
-export function createApp(db, { dataDir = resolve('data') } = {}) {
-  const PHOTOS = join(dataDir, 'photos');
+// Product photos live in the app's `photos/` folder, kept in git (owner's choice): served from this PC, so the menu
+// loads fast on the wifi and works without internet.
+const PHOTOS_DIR = fileURLToPath(new URL('../photos/', import.meta.url));
+export function createApp(db, { photosDir = PHOTOS_DIR, port = 8080 } = {}) {
+  const PHOTOS = photosDir;
   const routes = [];
   const route = (method, path, handler, opts = {}) => routes.push({ method, re: new RegExp('^' + path.replace(/:(\w+)/g, '(?<$1>\\d+)') + '$'), handler, ...opts });
 
@@ -107,8 +110,21 @@ export function createApp(db, { dataDir = resolve('data') } = {}) {
   route('POST', '/api/client/orders', ({ s, query, body }) => {
     clientOk(s, query);
     const source = body.source === 'tablet' ? 'tablet' : 'qr';
-    const { guestId, externalName, table, items, note } = body; // a client never picks an existing tab id
-    return O.createOrder(db, s, { guestId, externalName, table, items, note }, null, source);
+    const { guestId, guestName, externalName, table, items, note } = body; // a client never picks an existing tab id
+    return O.createOrder(db, s, { guestId, guestName, externalName, table, items, note }, null, source);
+  });
+  // The guest's phone follows its own order (waiting for a waiter / sent / refused). Only the status, nothing else.
+  route('GET', '/api/client/orders/:id', ({ s, query, p }) => {
+    clientOk(s, query);
+    const o = db.prepare('SELECT id, status FROM orders WHERE id = ? AND source IN (?, ?)').get(+p.id, 'qr', 'tablet');
+    if (!o) throw new PosError('not_found', 'Order not found', 404);
+    return o;
+  });
+  // Staff: the ordering links to put in the QR codes (the phones must be on the hostel wifi to reach this PC).
+  route('GET', '/api/staff/order-links', ({ user, s }) => {
+    need(user, 'manage_catalog');
+    const ips = Object.values(networkInterfaces()).flat().filter(i => i?.family === 'IPv4' && !i.internal).map(i => i.address);
+    return { key: s.client_key, tables: s.tables_enabled, bases: ips.map(ip => `http://${ip}:${port}`) };
   });
 
   const server = http.createServer(async (req, res) => {

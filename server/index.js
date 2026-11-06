@@ -1,6 +1,5 @@
 // Start: node --no-warnings server/index.js   (or start.bat on the reception PC)
 import { randomBytes } from 'node:crypto';
-import { dirname, resolve } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { openDb, getSettings, setSettings } from './db.js';
 import { createUser } from './auth.js';
@@ -19,7 +18,7 @@ if (!db.prepare('SELECT 1 FROM users').get()) {
 }
 if (process.argv.includes('--demo')) seedDemo(db);
 
-createApp(db, { dataDir: dirname(resolve(process.env.POS_DB || 'data/pos.db')) }).listen(PORT, () => {
+createApp(db, { port: PORT }).listen(PORT, () => {
   const ips = Object.values(networkInterfaces()).flat().filter(i => i?.family === 'IPv4' && !i.internal).map(i => i.address);
   console.log(`Rabbit POS running. On this PC: http://localhost:${PORT}`);
   for (const ip of ips) console.log(`  Tablets and phones on the wifi: http://${ip}:${PORT}`);
