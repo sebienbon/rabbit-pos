@@ -29,6 +29,12 @@ Une entrée par sujet : où ça se corrige, pourquoi, et ce qu'il faut faire. Co
 - **À faire :** donner une adresse IP fixe au PC dans la box (réservation DHCP), imprimer le nom du wifi sur les cartes (prévu sur la page des QR codes).
 - **Noté le :** 06/11/2026
 
+### 5. [ ] PC de réception : se mettre à jour tout seul depuis GitHub
+- **Où :** installation Windows (phase 6), `start.bat`.
+- **Problème :** la caisse tourne sur le PC (imprimantes, hors ligne, commandes en direct), donc son code doit y être copié. Sébastien ne veut pas s'occuper d'un dossier.
+- **À faire :** au démarrage, `start.bat` télécharge la dernière version depuis GitHub (sans toucher à `data/` ni aux photos ajoutées sur le PC), puis lance la caisse.
+- **Noté le :** 06/11/2026
+
 ## Réglé
 
 _(rien pour l'instant)_

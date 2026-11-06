@@ -11,6 +11,7 @@ import * as O from './orders.js';
 import { printQueue, reprint } from './print.js';
 import { syncStatus, pushOutbox, pullGuests } from './sync.js';
 import * as T from './shift.js';
+import * as A from './admin.js';
 
 const PUBLIC = fileURLToPath(new URL('../public/', import.meta.url));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -90,13 +91,34 @@ export function createApp(db, { photosDir = PHOTOS_DIR, port = 8080 } = {}) {
     O.events.emit('change', { type: 'catalog' });
     return { photo: null };
   });
-  route('GET', '/api/settings', ({ user, s }) => (need(user, 'settings'), s));
+  // ----- back office (public/admin.html) -----
+  route('GET', '/api/admin/catalog', ({ user }) => (need(user, 'manage_catalog'), A.adminCatalog(db)));
+  route('POST', '/api/admin/categories', ({ user, body }) => A.saveCategory(db, user, 0, body));
+  route('PUT', '/api/admin/categories/:id', ({ user, p, body }) => A.saveCategory(db, user, +p.id, body));
+  route('DELETE', '/api/admin/categories/:id', ({ user, p }) => A.deleteCategory(db, user, +p.id));
+  route('POST', '/api/admin/products', ({ user, body }) => A.saveProduct(db, user, 0, body));
+  route('PUT', '/api/admin/products/:id', ({ user, p, body }) => A.saveProduct(db, user, +p.id, body));
+  route('POST', '/api/admin/order', ({ user, body }) => A.reorder(db, user, body.kind, body.ids));
+  route('POST', '/api/admin/import', ({ user, body }) => A.importLoyverse(db, user, body.csv, !!body.apply), { jsonMax: 8e6 });
+  route('GET', '/api/admin/users', ({ user }) => A.listUsers(db, user));
+  route('POST', '/api/admin/users', ({ user, body }) => A.saveUser(db, user, 0, body));
+  route('PUT', '/api/admin/users/:id', ({ user, p, body }) => A.saveUser(db, user, +p.id, body));
+  route('PUT', '/api/admin/printers', ({ user, body }) => A.savePrinters(db, user, body));
+  route('POST', '/api/admin/printers/test', ({ user, body }) => A.testPrinter(db, user, String(body.station)));
+  // Owner options. Passwords and keys never leave the PC: the screen only learns whether they are set.
+  const SECRET_KEYS = ['sheet_password', 'sheet_token', 'journal_secret', 'client_key'];
+  const ownerSettings = s => ({ ...staffSettings(s), secrets: Object.fromEntries(SECRET_KEYS.map(k => [k, !!s[k]])) });
+  route('GET', '/api/settings', ({ user, s }) => (need(user, 'settings'), ownerSettings(s)));
   route('PUT', '/api/settings', ({ user, body }) => {
     need(user, 'settings');
-    const out = setSettings(db, body);
-    logAction(db, user.id, 'settings', body);
+    const patch = { ...body };
+    delete patch.secrets; delete patch.sheet_token; delete patch.client_key; delete patch.printers; // printers: own screen
+    for (const k of ['sheet_password', 'journal_secret']) if (!patch[k]) delete patch[k];          // empty = keep the old one
+    if ('sheet_url' in patch || 'sheet_user' in patch || 'sheet_password' in patch) patch.sheet_token = '';
+    const out = setSettings(db, patch);
+    logAction(db, user.id, 'settings', Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, SECRET_KEYS.includes(k) ? '(changed)' : v])));
     O.events.emit('change', { type: 'settings' });
-    return out;
+    return ownerSettings(out);
   });
   route('GET', '/api/print', ({ user }) => (need(user, 'printers'), printQueue(db)));
   route('POST', '/api/print/:id/retry', ({ user, p }) => (need(user, 'printers'), reprint(db, +p.id), { ok: true }));
@@ -136,7 +158,7 @@ export function createApp(db, { photosDir = PHOTOS_DIR, port = 8080 } = {}) {
         if (!r) throw new PosError('not_found', 'Unknown address', 404);
         const token = (req.headers.authorization || '').replace(/^Bearer /, '');
         const ctx = { req, token, user: userFromToken(db, token), s: getSettings(db), query: url.searchParams,
-          p: r.re.exec(url.pathname).groups || {}, body: req.method === 'GET' ? {} : r.raw ? await readBody(req, r.raw) : await readJson(req) };
+          p: r.re.exec(url.pathname).groups || {}, body: req.method === 'GET' ? {} : r.raw ? await readBody(req, r.raw) : await readJson(req, r.jsonMax) };
         return send(res, 200, await r.handler(ctx));
       }
       if (url.pathname.startsWith('/photos/')) return await servePhoto(req, res, PHOTOS, url.pathname);
@@ -181,10 +203,10 @@ function imageType(b) {
   return null;
 }
 
-function readJson(req) {
+function readJson(req, max = 1e6) {
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
-    req.on('data', c => { size += c.length; if (size > 1e6) { reject(new PosError('too_big', 'Request too big', 413)); req.destroy(); } else chunks.push(c); });
+    req.on('data', c => { size += c.length; if (size > max) { reject(new PosError('too_big', 'Request too big', 413)); req.destroy(); } else chunks.push(c); });
     req.on('end', () => {
       if (!chunks.length) return resolve({});
       try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); } catch { reject(new PosError('bad_json', 'Bad request')); }

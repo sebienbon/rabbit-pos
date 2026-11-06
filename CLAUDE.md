@@ -42,6 +42,11 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
   Guest ids stay stable across Sheet refreshes (`replaceGuests` upserts). Order status: `GET /api/client/orders/:id`.
 - `public/qr.html` printable QR codes (owner/manager token from the till; `GET /api/staff/order-links`),
   `public/vendor/qrcode.mjs` (qrcode-generator 2.0.4, MIT, vendored).
+- `server/admin.js` + `public/admin.*` back office (`/admin.html`, "Back office" chip on the till for owner/manager):
+  Options (owner), Menu & photos (photos shrunk to 800 px JPEG in the browser), Import from Loyverse (CSV preview then
+  apply: adds, new prices, never deletes; variants "Name (Option)"; food-word categories → kitchen), Staff & PINs (owner;
+  PINs unique, disabling logs out, one owner kept), Printers (address/port/58-80 mm + test ticket), Google Sheet (owner).
+  `GET /api/settings` never returns passwords/keys (`secrets: {key: set?}`); an empty password in PUT keeps the old one.
 - `public/pos.*` till screen (PIN + sell + bills + guest-order validation + "Sheet" chip when sales wait)
 - `test/core.test.js`, `test/sync.test.js` — `npm test` must stay green. sync tests run Rabbit-System's REAL
   30.UI_api.gs in node:vm (`test/helpers/gas-fake.js`); set RABBIT_SYSTEM_GS=path/to/30.UI_api.gs, else 3 are skipped.
@@ -63,6 +68,6 @@ and is ticked when done. Read it before calling the project finished.
    receives it; bar cash counted per service; handed-over cash → op `bar_cashout` (Entries Manual "BAR Cash-out", never Entries);
    cards checked per day for both terminals. Card settlement fix on the Rabbit-System side: BACKLOG.md #1.
 3. ✅ Guest ordering pages (QR phone + self-service tablet) + printable QR codes. Photo upload screen → phase 4.
-4. Owner options screen, catalog import from the Loyverse CSV export, users/PIN management, printer setup screen.
+4. ✅ Back office: options, menu + photos, Loyverse import, staff/PINs, printers, Google Sheet settings.
 5. Waiter phone screen, reception view of open bills, bar till shift open/close + cash count.
 6. Windows install: Node + `start.bat` at boot, daily backup of `data/pos.db`.

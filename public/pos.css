@@ -120,3 +120,4 @@ h1, h2 { font-family: var(--display); font-weight: 800; margin: 0; }
 }
 
 .chip.warn { background: #FFE3E7; color: #B3263A; }
+a.chip { text-decoration: none; }

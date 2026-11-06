@@ -42,6 +42,15 @@ export function createUser(db, { name, role, pin, author }) {
   return Number(r.lastInsertRowid);
 }
 
+// New PIN for a staff member (each PIN belongs to one person: the PIN alone says who logs in).
+export function setPin(db, userId, pin) {
+  checkPinFormat(pin);
+  const other = findByPin(db, pin);
+  if (other && other.id !== userId) throw new PosError('pin_taken', 'This PIN is already used by someone else');
+  const salt = randomBytes(16).toString('hex');
+  db.prepare('UPDATE users SET pin_hash = ?, pin_salt = ? WHERE id = ?').run(hash(pin, salt), salt, userId);
+}
+
 function findByPin(db, pin) {
   for (const u of db.prepare('SELECT * FROM users WHERE active = 1').all()) {
     const a = Buffer.from(hash(pin, u.pin_salt), 'hex');

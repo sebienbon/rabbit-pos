@@ -241,6 +241,7 @@ $('pendingBox').onclick = run(async e => {
 // ---------- bar service (cash drawer of the bar) ----------
 const barClosed = () => S.settings.till === 'bar' && !S.shift;
 function drawBar() {
+  $('adminBtn').classList.toggle('hidden', !['owner', 'manager'].includes(S.user.role));
   const b = $('barBtn'), show = S.settings.till === 'bar' && can('pay');
   b.classList.toggle('hidden', !show);
   b.classList.toggle('warn', !S.shift);
