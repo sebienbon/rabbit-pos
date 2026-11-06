@@ -205,12 +205,16 @@ export function closeTab(db, settings, tabId, { payment, charge = false }, user)
       WHERE id = ?`).run(charge ? 'charged' : 'paid', at, user.id, pay, tab.subtotal, tab.service, tab.tax, tab.total, shift?.id ?? null, tabId);
     const lines = [];
     for (const o of tab.orders) for (const i of o.items) if (!i.voided)
-      lines.push({ product: i.name, category: i.category, qty: i.qty, unit: i.unit_price, total: i.qty * i.unit_price });
-    if (tab.service) lines.push({ product: `Service ${settings.service_rate}%`, category: 'Service', qty: 1, unit: tab.service, total: tab.service });
-    if (tab.tax) lines.push({ product: `Tax ${settings.tax_rate}%`, category: 'Tax', qty: 1, unit: tab.tax, total: tab.tax });
+      lines.push({ product: i.name, category: i.category, station: i.station, qty: i.qty, unit: i.unit_price, total: i.qty * i.unit_price });
+    if (tab.service) lines.push({ product: `Service ${settings.service_rate}%`, category: 'Service', station: 'bar', qty: 1, unit: tab.service, total: tab.service });
+    if (tab.tax) lines.push({ product: `Tax ${settings.tax_rate}%`, category: 'Tax', station: 'bar', qty: 1, unit: tab.tax, total: tab.tax });
     // Only a bill put on the guest goes to the Sheet (Guest bills); a bill paid here stays in the bar's own till.
     if (settings.sheet_sync && charge) db.prepare('INSERT INTO outbox (type, payload, created_at) VALUES (?, ?, ?)').run('sale', JSON.stringify({
       tabId, at, guest: tab.kind === 'walkin' ? '' : tab.name, kind: tab.kind, pay, till: settings.till, author: user.author, lines,
+    }), at);
+    // Every bill (paid or on a guest) also goes to the "POS Bar" tab, once that small script is set up.
+    if (settings.journal_url) db.prepare('INSERT INTO outbox (type, payload, created_at) VALUES (?, ?, ?)').run('journal', JSON.stringify({
+      tabId, at, who: tab.name, kind: tab.kind, table: tab.table_no, pay, shiftId: shift?.id ?? null, author: user.name, lines,
     }), at);
     if (!charge) queueReceipt(db, settings, tabId);
     logAction(db, user.id, charge ? 'charge' : 'pay', { tabId, total: tab.total, pay });

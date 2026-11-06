@@ -26,6 +26,9 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
 - `print.js` ESC/POS tickets + queue + TCP send · `app.js` HTTP API + SSE · `index.js` start · `seed.js` demo data
 - `sync.js` link with Rabbit-System (login, `pull` guests every 30 min, `push` op `sale` every 30 s, offline back-off,
   re-login, new line ids after a `ts_collision`) · `config.js` CLI options + `check`
+- `bridge/journal.gs` small separate Apps Script (SHEET_ID + SECRET written in it, never commit the filled copy): appends
+  every closed POS bill to the Sheet tab **"POS Bar"** (one row per item, paid or Unpaid; journal only, not in Entries).
+  POS side: outbox type `journal` → `journal_url` / `journal_secret`, independent of the Rabbit-System link.
 - `shift.js` bar service: open (cash count, gap vs what was left) / close (counted, handed over = BAR Cash-out, difference),
   day report (cards of the bar). Bar till: taking money needs an open service; a guest bill does not.
 - Photos: kept **in git** in `photos/` (owner's choice, 06/11): `POST /api/products/:id/photo` (raw JPEG/PNG/WebP ≤ 3 MB)
@@ -49,8 +52,9 @@ and is ticked when done. Read it before calling the project finished.
 ## Status / next steps
 1. ✅ Phase 1: server, roles, options, orders, tabs, printing queue, till screen, 11 tests.
 2. ✅ Sheet link via Rabbit-System's API (checked live 06/11: login ok, 143 guests). Only bills put on a guest go:
-   op `sale`, payment Unpaid, one line per item → Entries + Entries Manual (type Income, sub `sheet_category` 'Bar',
-   author 'Bar POS' without @ = no commission), shown in Guest bills. Paid bills stay in the POS (bar cash).
+   op `sale`, payment Unpaid, one line per item → Entries + Entries Manual (type Income, sub **Service**, object **Bar**
+   for drinks / **Restaurant** for the kitchen station, item in the comment — owner 06/11; author 'Bar POS' without @ =
+   no commission), shown in Guest bills. Paid bills stay in the POS (bar cash).
    Account `bar-pos` (role **manager**, needed by Rabbit-System's `bar_cashout`) in UI_Users; password only in the POS settings (`npm run config`), never in git.
    `till: 'reception'` mapping to the reception shift still open.
 2b. ✅ Bar/reception money rules (doc "Rabbit POS — décisions caisse bar / réception"): every payment belongs to the till that

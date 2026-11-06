@@ -81,9 +81,12 @@ export function saleOp(row, s) {
     id: `POS-${row.id}-${Date.parse(row.created_at)}${v ? '-' + v : ''}`, type: 'sale', at: d.at,
     payload: {
       payment: 'Unpaid', saleId: `POS${d.tabId}`,
+      // Service / "Bar" for drinks, "Restaurant" for the kitchen; the item itself in the comment.
       lines: d.lines.map((l, i) => ({
-        ts: tsOf(at + v * 211 + i), qty: l.qty, unit: l.unit, unitCost: 0, guest: d.guest, object: l.product,
-        category: s.sheet_category || 'Bar', comment: `Bar POS bill #${d.tabId}${l.category ? ' · ' + l.category : ''}`,
+        ts: tsOf(at + v * 211 + i), qty: l.qty, unit: l.unit, unitCost: 0, guest: d.guest,
+        category: s.sheet_category || 'Service',
+        object: l.station === 'kitchen' ? (s.sheet_object_kitchen || 'Restaurant') : (s.sheet_object_bar || 'Bar'),
+        comment: `${l.product} · Bar POS bill #${d.tabId}`.slice(0, 300),
       })),
     },
   };
@@ -98,18 +101,34 @@ export function cashoutOp(row) {
 }
 const OPS = { sale: saleOp, bar_cashout: cashoutOp };
 
+// "POS Bar" tab: the small script of bridge/journal.gs (its own address and secret). Answers {ok, rows, duplicate?}.
+async function sendJournal(s, row) {
+  if (!s.journal_url || !s.journal_secret) throw new SheetError('journal_off', 'The "POS Bar" tab is not set up (journal_url)');
+  const body = { secret: s.journal_secret, id: `POSJ-${row.id}-${Date.parse(row.created_at)}`, bill: JSON.parse(row.payload) };
+  return post({ sheet_url: s.journal_url }, body);
+}
+
 export async function pushOutbox(db, s, { force = false } = {}) {
-  if (!sheetReady(s) || state.busy) return 0;
+  const rs = sheetReady(s), journal = !!(s.journal_url && s.journal_secret);
+  if ((!rs && !journal) || state.busy) return 0;
   if (!force && Date.now() < state.retryAt) return 0;   // no connection last time: wait a bit
   state.busy = true;
   let sent = 0;
   const fail = (row, msg, bump) => db.prepare('UPDATE outbox SET tries = tries + 1, error = ?, last_try = ?, variant = variant + ? WHERE id = ?')
     .run(String(msg).slice(0, 300), now(), bump ? 1 : 0, row.id);
   try {
-    const rows = db.prepare("SELECT * FROM outbox WHERE sent_at IS NULL AND type IN ('sale', 'bar_cashout') ORDER BY id LIMIT 20").all();
+    const rows = db.prepare("SELECT * FROM outbox WHERE sent_at IS NULL AND type IN ('sale', 'bar_cashout', 'journal') ORDER BY id LIMIT 20").all();
     for (const row of rows) {
       if (!force && row.tries && row.last_try && Date.now() - Date.parse(row.last_try) < retryDelay(row.tries)) continue;
+      if (row.type === 'journal' ? !journal : !rs) continue; // that link is not set up yet: the row waits
       try {
+        if (row.type === 'journal') {
+          const j = await sendJournal(s, row);
+          db.prepare('UPDATE outbox SET sent_at = ?, error = NULL, last_try = ? WHERE id = ?').run(now(), now(), row.id);
+          sent++; state.offlineTries = 0; state.retryAt = 0;
+          if (j.duplicate) console.log(`sheet: journal #${row.id} was already there`);
+          continue;
+        }
         const res = await callSheet(db, s, 'push', { deviceId: s.sheet_device, ops: [OPS[row.type](row, s)] });
         const r = (res.results || [])[0];
         if (!r) { // stopped before our op (Google busy): try again later
@@ -139,7 +158,7 @@ export async function pushOutbox(db, s, { force = false } = {}) {
 export function syncStatus(db, s) {
   const w = db.prepare('SELECT COUNT(*) n, MAX(error) err FROM outbox WHERE sent_at IS NULL').get();
   const last = db.prepare('SELECT MAX(sent_at) at FROM outbox').get().at;
-  return { on: sheetReady(s), waiting: w.n, error: w.err || state.guestsError, lastSent: last, guestsAt: state.guestsAt };
+  return { on: sheetReady(s) || !!s.journal_url, waiting: w.n, error: w.err || state.guestsError, lastSent: last, guestsAt: state.guestsAt };
 }
 
 // Started by index.js: guest bills every 30 s; guest list every 30 min (a Rabbit-System pull reads a lot).

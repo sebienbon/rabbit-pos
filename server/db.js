@@ -51,7 +51,14 @@ export const DEFAULT_SETTINGS = {
   sheet_user: '',                 // POS account of the UI_Users tab (role staff, author without @: no commission)
   sheet_password: '',
   sheet_device: 'POS-bar',        // device id shown in UI_Log
-  sheet_category: 'Bar',          // Entries sub-category (column C) of the guest bill lines
+  // Guest bill lines in Entries (owner, 06/11): sub-category Service, object "Bar" for drinks / "Restaurant" for food,
+  // the item itself in the comment.
+  sheet_category: 'Service',
+  sheet_object_bar: 'Bar',
+  sheet_object_kitchen: 'Restaurant',
+  // "POS Bar" tab of the Sheet: every bill of the POS, one row per item (bridge/journal.gs, a small separate script).
+  journal_url: '',
+  journal_secret: '',
   sheet_token: '',                // session, renewed by itself
   client_key: '',                 // secret in the QR link; set on first start
   till: 'bar',                    // 'bar' = its own cash drawer; 'reception' = counted in the reception shift

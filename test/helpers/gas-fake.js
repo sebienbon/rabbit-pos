@@ -49,7 +49,9 @@ export function fakeSheet(name, rows = []) {
 }
 
 // Loads the real script; returns doPost(body) -> parsed JSON answer, plus the sheets and properties.
-export function rabbitSystem(file, sheets) {
+export function rabbitSystem(file, sheets) { return loadGas(readFileSync(file, 'utf8'), sheets, basenameOf(file)); }
+const basenameOf = f => String(f).split('/').pop();
+export function loadGas(code, sheets, filename = 'script.gs') {
   const tabs = {};
   for (const [n, rows] of Object.entries(sheets)) tabs[n] = fakeSheet(n, rows);
   const ss = { getName: () => 'Reception - RABBIT TREE', getSpreadsheetTimeZone: () => 'Asia/Makassar',
@@ -58,7 +60,7 @@ export function rabbitSystem(file, sheets) {
   const P = { getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = String(v); }, deleteProperty: k => { delete props[k]; },
     getProperties: () => ({ ...props }) };
   const ctx = vm.createContext({
-    SpreadsheetApp: { getActiveSpreadsheet: () => ss, flush() {}, CopyPasteType: { PASTE_FORMAT: 'f' } },
+    SpreadsheetApp: { getActiveSpreadsheet: () => ss, openById: () => ss, flush() {}, CopyPasteType: { PASTE_FORMAT: 'f' } },
     PropertiesService: { getScriptProperties: () => P },
     LockService: { getScriptLock: () => ({ tryLock: () => true, waitLock() {}, releaseLock() {} }) },
     Utilities: { formatDate, parseDate, getUuid: () => randomUUID(), sleep() {},
@@ -68,7 +70,7 @@ export function rabbitSystem(file, sheets) {
     MailApp: { sendEmail() {} }, ScriptApp: { getProjectTriggers: () => [] },
     Logger: { log() {} }, console: { error() {}, log() {} },
   });
-  vm.runInContext(readFileSync(file, 'utf8'), ctx, { filename: '30.UI_api.gs' });
+  vm.runInContext(code, ctx, { filename });
   const doPost = body => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(body) } }).text);
   return { tabs, props, doPost };
 }

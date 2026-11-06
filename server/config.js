@@ -29,6 +29,6 @@ if (args.includes('check')) {
     console.log('A guest bill is sent like this (not sent now):', JSON.stringify(sample.payload, null, 1));
   } catch (e) { console.log('Link problem:', e.message); process.exit(1); }
 } else if (!Object.keys(patch).length) {
-  const { client_key, sheet_password, sheet_token, ...show } = s;
-  console.log({ ...show, sheet_password: sheet_password ? '(set)' : '' });
+  const { client_key, sheet_password, sheet_token, journal_secret, ...show } = s;
+  console.log({ ...show, sheet_password: sheet_password ? '(set)' : '', journal_secret: journal_secret ? '(set)' : '' });
 }

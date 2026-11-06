@@ -12,7 +12,8 @@ import * as O from '../server/orders.js';
 import { seedDemo } from '../server/seed.js';
 import * as T from '../server/shift.js';
 import { pushOutbox, pullGuests, syncStatus, saleOp, tsOf, resetSyncState, callSheet } from '../server/sync.js';
-import { rabbitSystem } from './helpers/gas-fake.js';
+import { rabbitSystem, loadGas } from './helpers/gas-fake.js';
+import { readFileSync } from 'node:fs';
 
 const GS = [process.env.RABBIT_SYSTEM_GS, '../../Rabbit-System/dev/server/30.UI_api.gs', '../../rabbit-system/dev/server/30.UI_api.gs']
   .filter(Boolean).map(p => p.startsWith('/') ? p : fileURLToPath(new URL(p, import.meta.url))).find(existsSync);
@@ -23,7 +24,7 @@ test('line ids: 17 digits in UTC+8, ids change after a refusal', () => {
   const row = { id: 3, created_at: '2026-11-06T05:00:00.000Z', payload: JSON.stringify({ tabId: 9, at: '2026-11-06T05:00:00.000Z', guest: 'Hiro',
     lines: [{ product: 'Bintang', category: 'Beer', qty: 2, unit: 40000 }, { product: 'Service 5%', category: 'Service', qty: 1, unit: 4000 }] }) };
   const a = saleOp(row, {}), b = saleOp({ ...row, variant: 1 }, { sheet_category: 'F&B' });
-  assert.equal(a.payload.payment, 'Unpaid'); assert.equal(a.payload.lines[0].category, 'Bar');
+  assert.equal(a.payload.payment, 'Unpaid'); assert.equal(a.payload.lines[0].category, 'Service'); assert.equal(a.payload.lines[0].object, 'Bar');
   assert.deepEqual(a.payload.lines.map(l => l.ts), ['20261106130000000', '20261106130000001']);
   assert.notEqual(a.id, b.id); assert.notEqual(a.payload.lines[0].ts, b.payload.lines[0].ts); assert.equal(b.payload.lines[0].category, 'F&B');
 });
@@ -92,8 +93,10 @@ test('Rabbit-System: guests in, guest bill out as Unpaid lines, paid bills stay 
     assert.equal(await pushOutbox(p.db, p.s()), 1);
 
     const rows = unpaid(rs);
+    // Owner's rule: sub-category Service, object "Bar" (drinks) or "Restaurant" (kitchen), the item in the comment.
     assert.deepEqual(rows.map(r => [r[1], r[2], r[3], r[4], r[6], r[12], r[19]]),
-      [['Income', 'Bar', 'Mojito', 2, 170000, 'Maya Smith', ''], ['Income', 'Bar', 'Burger', 1, 85000, 'Maya Smith', '']]);
+      [['Income', 'Service', 'Bar', 2, 170000, 'Maya Smith', ''], ['Income', 'Service', 'Restaurant', 1, 85000, 'Maya Smith', '']]);
+    assert.match(rows[0][16], /^Mojito · Bar POS bill #\d+$/); assert.match(rows[1][16], /^Burger · /);
     assert.equal(rs.tabs['Entries Manual'].rows.length, 3);
     assert.deepEqual(syncStatus(p.db, p.s()).waiting, 0);
 
@@ -158,4 +161,42 @@ test('Rabbit-System: wrong password is shown on the till and nothing is lost', r
     assert.equal(await pushOutbox(p.db, p.s(), { force: true }), 1);
     assert.equal(unpaid(rs).length, 1);
   } finally { close(); }
+});
+
+test('"POS Bar" tab: every bill, one row per item, written once; Entries untouched', async () => {
+  const code = readFileSync(new URL('../bridge/journal.gs', import.meta.url), 'utf8')
+    .replace("'PUT_THE_SHEET_ID_HERE'", "'sheet1'").replace("'PUT_A_LONG_RANDOM_WORD_HERE'", "'j-secret'");
+  const gs = loadGas(code, { Entries: [['h']] }, 'journal.gs');
+  assert.match(loadGas(readFileSync(new URL('../bridge/journal.gs', import.meta.url), 'utf8'), {}).doPost({ secret: 'PUT_A_LONG_RANDOM_WORD_HERE' }).error, /bad secret/, 'the template refuses everything');
+  const server = http.createServer((req, res) => { let b = ''; req.on('data', c => b += c); req.on('end', () => {
+    res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(gs.doPost(JSON.parse(b)))); }); }).listen(0);
+  await new Promise(r => server.once('listening', r));
+  try {
+    resetSyncState();
+    const db = openDb(':memory:');
+    createUser(db, { name: 'Owner', role: 'owner', pin: '1234' });
+    seedDemo(db);
+    setSettings(db, { journal_url: `http://127.0.0.1:${server.address().port}/exec`, journal_secret: 'j-secret' }); // no Rabbit-System link here
+    const c = userFromToken(db, login(db, '4444', 't').token);
+    T.startShift(db, c, { counted: 0 });
+    const pid = n => db.prepare('SELECT id FROM products WHERE name = ?').get(n).id;
+    const gid = n => db.prepare('SELECT rowid AS id FROM guests WHERE name = ?').get(n).id;
+    const sell = (who, items, close) => { const s = getSettings(db); const o = O.createOrder(db, s, { ...who, items: items.map(([n, q]) => ({ productId: pid(n), qty: q })) }, c); O.closeTab(db, s, o.tabId, close, c); };
+    sell({ walkin: true }, [['Bintang', 2], ['Nasi goreng', 1]], { payment: 'Cash' });
+    sell({ guestId: gid('Hiro Tanaka') }, [['Mojito', 1]], { charge: true });
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM outbox WHERE type = 'sale'").get().n, 1, 'the guest bill also waits for Rabbit-System');
+    assert.equal(await pushOutbox(db, getSettings(db)), 2);
+    const rows = gs.tabs['POS Bar'].rows;
+    assert.equal(rows[0][0], 'Date'); assert.equal(rows.length, 4);
+    assert.deepEqual(rows.slice(1).map(r => [r[4], r[6], r[8], r[9], r[11], r[12], r[14]]), [
+      ['Walk-in', 'Bintang', 'Bar', 2, 80000, 'Cash', 'Komang'], ['Walk-in', 'Nasi goreng', 'Kitchen', 1, 55000, 'Cash', 'Komang'],
+      ['Guest', 'Mojito', 'Bar', 1, 85000, 'Unpaid', 'Komang']]);
+    assert.equal(rows[3][3], 'Hiro Tanaka'); assert.ok(rows[1][0] instanceof Date);
+    // Sent again (answer lost): written once.
+    db.exec("UPDATE outbox SET sent_at = NULL WHERE type = 'journal'");
+    assert.equal(await pushOutbox(db, getSettings(db), { force: true }), 2);
+    assert.equal(gs.tabs['POS Bar'].rows.length, 4);
+    assert.equal(gs.tabs.Entries.rows.length, 1, 'Entries untouched');
+    assert.equal(syncStatus(db, getSettings(db)).waiting, 1, 'only the guest bill waits (no Rabbit-System link set)');
+  } finally { server.closeAllConnections(); server.close(); }
 });
