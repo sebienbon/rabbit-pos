@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import { PosError, now, tx, logAction } from './db.js';
 import { need } from './auth.js';
 import { queueOrderTickets, queueReceipt } from './print.js';
+import { openShift } from './shift.js';
 
 export const events = new EventEmitter();
 events.setMaxListeners(100);
@@ -180,6 +181,9 @@ export function closeTab(db, settings, tabId, { payment, charge = false }, user)
     if (db.prepare("SELECT 1 FROM orders WHERE tab_id = ? AND status = 'pending'").get(tabId))
       throw new PosError('pending', 'An order of this tab still waits for validation');
     if (tab.total <= 0) throw new PosError('empty', 'Nothing to pay on this tab');
+    // Bar till: money taken here goes in the drawer of the open service.
+    const shift = openShift(db);
+    if (!charge && settings.till === 'bar' && !shift) throw new PosError('no_shift', 'Open the bar first (count the cash in the drawer)');
     let pay;
     if (charge) {
       if (tab.kind === 'walkin') throw new PosError('no_guest', 'A walk-in sale must be paid now');
@@ -189,8 +193,8 @@ export function closeTab(db, settings, tabId, { payment, charge = false }, user)
       pay = payment;
     }
     const at = now();
-    db.prepare(`UPDATE tabs SET status = ?, closed_at = ?, closed_by = ?, payment = ?, subtotal = ?, service = ?, tax = ?, total = ?
-      WHERE id = ?`).run(charge ? 'charged' : 'paid', at, user.id, pay, tab.subtotal, tab.service, tab.tax, tab.total, tabId);
+    db.prepare(`UPDATE tabs SET status = ?, closed_at = ?, closed_by = ?, payment = ?, subtotal = ?, service = ?, tax = ?, total = ?, shift_id = ?
+      WHERE id = ?`).run(charge ? 'charged' : 'paid', at, user.id, pay, tab.subtotal, tab.service, tab.tax, tab.total, shift?.id ?? null, tabId);
     const lines = [];
     for (const o of tab.orders) for (const i of o.items) if (!i.voided)
       lines.push({ product: i.name, category: i.category, qty: i.qty, unit: i.unit_price, total: i.qty * i.unit_price });

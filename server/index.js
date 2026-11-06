@@ -1,5 +1,6 @@
 // Start: node --no-warnings server/index.js   (or start.bat on the reception PC)
 import { randomBytes } from 'node:crypto';
+import { dirname, resolve } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { openDb, getSettings, setSettings } from './db.js';
 import { createUser } from './auth.js';
@@ -18,7 +19,7 @@ if (!db.prepare('SELECT 1 FROM users').get()) {
 }
 if (process.argv.includes('--demo')) seedDemo(db);
 
-createApp(db).listen(PORT, () => {
+createApp(db, { dataDir: dirname(resolve(process.env.POS_DB || 'data/pos.db')) }).listen(PORT, () => {
   const ips = Object.values(networkInterfaces()).flat().filter(i => i?.family === 'IPv4' && !i.internal).map(i => i.address);
   console.log(`Rabbit POS running. On this PC: http://localhost:${PORT}`);
   for (const ip of ips) console.log(`  Tablets and phones on the wifi: http://${ip}:${PORT}`);
@@ -28,8 +29,5 @@ createApp(db).listen(PORT, () => {
 setInterval(() => processPrintJobs(db, getSettings(db)).catch(e => console.error('print', e)), 2000);
 
 // Google Sheet: sales out every 30 s, guest list in every 10 min (only when the bridge is set up).
-// Demo: real guest names are read, but demo bills are never written to the real Sheet.
-const demo = process.argv.includes('--demo');
-startSync(db, () => getSettings(db), { send: !demo });
-if (demo && sheetReady(getSettings(db))) console.log('Demo: guest names come from the Sheet; bills are NOT sent to it.');
-if (!sheetReady(getSettings(db))) console.log('Google Sheet link not set up yet: see bridge/README.md');
+startSync(db, () => getSettings(db));
+if (!sheetReady(getSettings(db))) console.log('Google Sheet link not set up yet: see README.md (npm run config)');

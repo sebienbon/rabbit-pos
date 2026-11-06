@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS print_jobs (
 CREATE TABLE IF NOT EXISTS outbox (
   id INTEGER PRIMARY KEY, type TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL,
   sent_at TEXT, tries INTEGER NOT NULL DEFAULT 0, error TEXT, last_try TEXT, variant INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS shifts (
+  id INTEGER PRIMARY KEY, opened_at TEXT NOT NULL, opened_by INTEGER, float INTEGER NOT NULL, open_diff INTEGER, open_comment TEXT,
+  closed_at TEXT, closed_by INTEGER, counted INTEGER, cashout INTEGER, expected INTEGER, diff INTEGER, comment TEXT);
 CREATE TABLE IF NOT EXISTS log (
   id INTEGER PRIMARY KEY, at TEXT NOT NULL, user_id INTEGER, action TEXT NOT NULL, detail TEXT);
 `;
@@ -65,6 +68,7 @@ export function openDb(file = 'data/pos.db') {
   // Columns added after phase 1 (databases created before keep working).
   const has = (t, c) => db.prepare(`PRAGMA table_info(${t})`).all().some(r => r.name === c);
   if (!has('outbox', 'last_try')) db.exec('ALTER TABLE outbox ADD COLUMN last_try TEXT');
+  if (!has('tabs', 'shift_id')) db.exec('ALTER TABLE tabs ADD COLUMN shift_id INTEGER');
   if (!has('outbox', 'variant')) db.exec('ALTER TABLE outbox ADD COLUMN variant INTEGER NOT NULL DEFAULT 0');
   return db;
 }

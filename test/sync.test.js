@@ -10,7 +10,8 @@ import { openDb, getSettings, setSettings } from '../server/db.js';
 import { createUser, login, userFromToken } from '../server/auth.js';
 import * as O from '../server/orders.js';
 import { seedDemo } from '../server/seed.js';
-import { pushOutbox, pullGuests, syncStatus, saleOp, tsOf, resetSyncState } from '../server/sync.js';
+import * as T from '../server/shift.js';
+import { pushOutbox, pullGuests, syncStatus, saleOp, tsOf, resetSyncState, callSheet } from '../server/sync.js';
 import { rabbitSystem } from './helpers/gas-fake.js';
 
 const GS = [process.env.RABBIT_SYSTEM_GS, '../../Rabbit-System/dev/server/30.UI_api.gs', '../../rabbit-system/dev/server/30.UI_api.gs']
@@ -32,7 +33,7 @@ function sheetData() {
   const pay = ['', '', '', '', '', '', '', '', '', '', '', 'Service', 'Transport', 'Tour', 'Other', '', 'Payment type'];
   return {
     UI_Users: [['Username', 'Display name', 'Role', 'Author email', 'Set new password here', 'Password hash', 'Salt', 'Active'],
-      ['bar-pos', 'Bar POS', 'staff', 'Bar POS', 'pw-123456', '', '', true]],
+      ['bar-pos', 'Bar POS', 'manager', 'Bar POS', 'pw-123456', '', '', true]],
     UI_Log: H(10), UI_Shifts: H(13), Entries: H(20), 'Entries Manual': H(17), 'Cashouts&Cor': H(9), Settlements: H(10), Protect: H(5),
     'Data activities': [pay, ...['Cash', 'Card', 'Unpaid'].map(p => { const r = Array(17).fill(''); r[16] = p; return r; })],
     '24datafeed': [['', '', 'Guest'], ['', '', 'Hiro Tanaka'], ['', '', 'Jonas Keller']],
@@ -64,6 +65,7 @@ function pos(url) {
   seedDemo(db);
   setSettings(db, { sheet_url: url, sheet_user: 'bar-pos', sheet_password: 'pw-123456' });
   const c = userFromToken(db, login(db, '4444', 't').token);
+  T.startShift(db, c, { counted: 0 });
   const pid = n => db.prepare('SELECT id FROM products WHERE name = ?').get(n).id;
   const gid = n => db.prepare('SELECT rowid AS id FROM guests WHERE name = ?').get(n).id;
   const sell = (who, items, close) => {
@@ -72,7 +74,7 @@ function pos(url) {
     O.closeTab(db, s, o.tabId, close, c);
     return o.tabId;
   };
-  return { db, s: () => getSettings(db), sell, gid };
+  return { db, s: () => getSettings(db), sell, gid, user: c };
 }
 const unpaid = rs => rs.tabs.Entries.rows.slice(1).filter(r => r[13] === 'Unpaid');
 
@@ -94,6 +96,16 @@ test('Rabbit-System: guests in, guest bill out as Unpaid lines, paid bills stay 
       [['Income', 'Bar', 'Mojito', 2, 170000, 'Maya Smith', ''], ['Income', 'Bar', 'Burger', 1, 85000, 'Maya Smith', '']]);
     assert.equal(rs.tabs['Entries Manual'].rows.length, 3);
     assert.deepEqual(syncStatus(p.db, p.s()).waiting, 0);
+
+    // End of the bar service: the cash handed over becomes the "BAR Cash-out" row of Entries Manual.
+    T.endShift(p.db, p.s(), p.user, { counted: 40000, cashout: 25000 });
+    assert.equal(await pushOutbox(p.db, p.s(), { force: true }), 1);
+    const bar = rs.tabs['Entries Manual'].rows.filter(r => r[1] === 'BAR Cash-out');
+    assert.equal(bar.length, 1); assert.equal(bar[0][7], 25000); assert.equal(bar[0][13], 'Extern cash'); assert.equal(bar[0][14], 'Bar POS');
+    assert.match(bar[0][15], /counted 40000, expected 25000, difference 15000/);
+    const pulled = await callSheet(p.db, p.s(), 'pull');
+    assert.equal(pulled.bar.length, 1); assert.equal(pulled.bar[0].amount, 25000);
+    assert.equal(rs.tabs.Entries.rows.filter(r => r[1] === 'BAR Cash-out').length, 0, 'never in Entries');
   } finally { close(); }
 });
 

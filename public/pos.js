@@ -87,7 +87,7 @@ function draw() {
   $('grid').innerHTML = can('sell') ? list.map(p =>
     `<button class="tile c-${color(p.categoryId)}" data-p="${p.id}">${esc(p.name)}<small>${rp(p.price)}</small></button>`).join('')
     || '<div class="empty">No item</div>' : '<div class="empty">Your role takes payments: open a bill from “Open bills”.</div>';
-  drawPending(); drawTicket(); drawSync();
+  drawPending(); drawTicket(); drawSync(); drawBar();
 }
 // Google Sheet link: shown only when sales wait or something went wrong.
 function drawSync() {
@@ -174,14 +174,18 @@ async function send() {
 $('sendBtn').onclick = run(send);
 $('payBtn').onclick = run(async () => {
   if (!cur.tabId && !cur.who && cur.cart.length) cur.who = { walkin: true, label: 'Walk-in' };
+  // Bar till: money is taken only during an open service; a bill can still go on the guest.
+  if (barClosed() && cur.who?.walkin) return openBar();
   const id = await send(); if (!id) return;
   const tab = curTab();
   open(`<h2>Pay ${rp(tab.total)}</h2>
     <div style="color: var(--ink-soft); font-weight: 700">${esc(tab.name)}</div>
-    ${S.settings.payments.map(p => `<button class="opt" data-pay="${esc(p)}">${esc(p)}</button>`).join('')}
+    ${barClosed() ? `<button class="opt" data-bar="1" style="background: var(--warn-bg); color: var(--warn); border: 0">The bar is closed<small>Open it to take money</small></button>`
+      : S.settings.payments.map(p => `<button class="opt" data-pay="${esc(p)}">${esc(p)}</button>`).join('')}
     ${tab.kind !== 'walkin' ? `<button class="opt" data-charge="1" style="background: var(--ok-bg); color: var(--ok); border: 0">
       Put on the guest bill<small>Paid at the reception</small></button>` : ''}
     <button class="btn line2" data-close="1">Cancel</button>`, run(async b => {
+    if (b.dataset.bar) return openBar();
     if (b.dataset.pay) await api(`/api/tabs/${id}/pay`, { method: 'POST', body: { payment: b.dataset.pay } });
     else if (b.dataset.charge) await api(`/api/tabs/${id}/charge`, { method: 'POST' });
     else return close();
@@ -234,6 +238,65 @@ $('pendingBox').onclick = run(async e => {
   await load();
 });
 
+// ---------- bar service (cash drawer of the bar) ----------
+const barClosed = () => S.settings.till === 'bar' && !S.shift;
+function drawBar() {
+  const b = $('barBtn'), show = S.settings.till === 'bar' && can('pay');
+  b.classList.toggle('hidden', !show);
+  b.classList.toggle('warn', !S.shift);
+  b.textContent = S.shift ? 'Bar open' : 'Bar closed';
+}
+const num = v => Math.round(Number(String(v).replace(/[^\d]/g, '')) || 0);
+function moneyInput(id, label, value = '') {
+  return `<label style="font-weight: 800">${label}<input id="${id}" inputmode="numeric" autocomplete="off" value="${value}" placeholder="Rp"></label>`;
+}
+function openBar() {
+  open(`<h2>Open the bar</h2>
+    <div style="color: var(--ink-soft); font-weight: 700">Count the cash in the bar drawer before the first sale.</div>
+    ${moneyInput('cnt', 'Cash in the drawer')}
+    <div class="split"><button class="btn line2" data-close="1">Cancel</button><button class="btn go" data-ok="1">Open</button></div>`, run(async b => {
+    if (!b.dataset.ok) return;
+    if ($('cnt').value.trim() === '') return toast('Type the cash counted (0 if empty)', true);
+    const r = await api('/api/shift/open', { method: 'POST', body: { counted: num($('cnt').value) } });
+    close();
+    toast(r.diff ? `Bar open. ${r.diff > 0 ? 'More' : 'Less'} than left last time: ${rp(Math.abs(r.diff))}` : 'Bar open', !!r.diff);
+    await load();
+  }));
+  $('cnt').focus();
+}
+async function closeBar() {
+  const sh = S.shift, day = await api('/api/report/day');
+  const pays = sh.payments.map(p => `<div class="row"><span>${esc(p.payment)} · ${p.n} bill${p.n > 1 ? 's' : ''}</span><span>${rp(p.total)}</span></div>`).join('')
+    || '<div class="row"><span>No paid bill</span><span></span></div>';
+  open(`<h2>Close the bar</h2>
+    <div style="display: grid; gap: 6px">
+      <div class="row"><span>Cash at opening</span><span>${rp(sh.float)}</span></div>${pays}
+      <div class="row"><span>On guest bills · ${sh.charged.n}</span><span>${rp(sh.charged.total)}</span></div>
+      <div class="row" style="color: var(--ink); font-size: 16px"><span>Cash expected in the drawer</span><span>${rp(sh.expected)}</span></div>
+      <div class="row"><span>Cards at the bar today (check with both terminals and the reception)</span><span>${rp(day.cards)}</span></div>
+    </div>
+    ${moneyInput('cnt', 'Cash counted in the drawer')}
+    ${moneyInput('out', 'Cash handed to the reception / owner (BAR Cash-out)')}
+    <div id="calc" class="row" style="font-size: 15px"></div>
+    <input id="note" placeholder="Comment (optional)" aria-label="Comment">
+    <div class="split"><button class="btn line2" data-close="1">Cancel</button><button class="btn go" data-ok="1">Close the bar</button></div>`, run(async b => {
+    if (!b.dataset.ok) return;
+    if ($('cnt').value.trim() === '') return toast('Type the cash counted', true);
+    const r = await api('/api/shift/close', { method: 'POST', body: { counted: num($('cnt').value), cashout: num($('out').value), comment: $('note').value } });
+    close();
+    toast(`Bar closed · difference ${r.diff >= 0 ? '+' : '−'}${rp(Math.abs(r.diff))} · ${rp(r.left)} left in the drawer`, r.diff !== 0);
+    await load();
+  }));
+  const calc = () => {
+    const c = num($('cnt').value), o = num($('out').value), d = c - sh.expected;
+    $('calc').innerHTML = $('cnt').value.trim() === '' ? '' : `<span>Difference ${d >= 0 ? '+' : '−'}${rp(Math.abs(d))}</span><span>Left in the drawer ${rp(c - o)}</span>`;
+    $('calc').style.color = d ? 'var(--bad)' : 'var(--ok)';
+  };
+  $('cnt').oninput = $('out').oninput = calc;
+  $('cnt').focus();
+}
+$('barBtn').onclick = run(() => S.shift ? closeBar() : openBar());
+
 // ---------- dialog ----------
 let onPick = null, onCancel = null;
 function open(html, pick, cancel) { $('sheet').innerHTML = html; onPick = pick; onCancel = cancel; $('veil').classList.remove('hidden'); }
@@ -250,4 +313,6 @@ function confirmBox(title, text, yes) {
 }
 
 // ---------- go ----------
+// Keep the app on the device where the browser allows it (localhost or https; not on http://192.168…).
+if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('/sw.js').catch(() => {});
 token ? start().catch(() => showPin()) : showPin();

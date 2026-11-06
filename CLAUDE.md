@@ -26,6 +26,10 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
 - `print.js` ESC/POS tickets + queue + TCP send · `app.js` HTTP API + SSE · `index.js` start · `seed.js` demo data
 - `sync.js` link with Rabbit-System (login, `pull` guests every 30 min, `push` op `sale` every 30 s, offline back-off,
   re-login, new line ids after a `ts_collision`) · `config.js` CLI options + `check`
+- `shift.js` bar service: open (cash count, gap vs what was left) / close (counted, handed over = BAR Cash-out, difference),
+  day report (cards of the bar). Bar till: taking money needs an open service; a guest bill does not.
+- Photos: `POST /api/products/:id/photo` (raw JPEG/PNG/WebP ≤ 3 MB) → `data/photos/p<id>-<hash>.<ext>`, served immutable.
+  Devices: ETag/304 on app files; service worker `public/sw.js` + manifest only where allowed (localhost/https, not http://192.168…).
 - `public/pos.*` till screen (PIN + sell + bills + guest-order validation + "Sheet" chip when sales wait)
 - `test/core.test.js`, `test/sync.test.js` — `npm test` must stay green. sync tests run Rabbit-System's REAL
   30.UI_api.gs in node:vm (`test/helpers/gas-fake.js`); set RABBIT_SYSTEM_GS=path/to/30.UI_api.gs, else 3 are skipped.
@@ -36,8 +40,12 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
 2. ✅ Sheet link via Rabbit-System's API (checked live 06/11: login ok, 143 guests). Only bills put on a guest go:
    op `sale`, payment Unpaid, one line per item → Entries + Entries Manual (type Income, sub `sheet_category` 'Bar',
    author 'Bar POS' without @ = no commission), shown in Guest bills. Paid bills stay in the POS (bar cash).
-   Account `bar-pos` (staff) created in UI_Users; password only in the POS settings (`npm run config`), never in git.
+   Account `bar-pos` (role **manager**, needed by Rabbit-System's `bar_cashout`) in UI_Users; password only in the POS settings (`npm run config`), never in git.
    `till: 'reception'` mapping to the reception shift still open.
+2b. ✅ Bar/reception money rules (doc "Rabbit POS — décisions caisse bar / réception"): every payment belongs to the till that
+   receives it; bar cash counted per service; handed-over cash → op `bar_cashout` (Entries Manual "BAR Cash-out", never Entries);
+   cards checked per day for both terminals. OPEN (Rabbit-System side, not ours): its `card_settlement` compares both
+   terminals with Entries cards only, so bar card sales show as a difference there until it subtracts them.
 3. Guest ordering pages (QR phone + self-service tablet) using `/api/client/*` (key in the link), photos upload.
 4. Owner options screen, catalog import from the Loyverse CSV export, users/PIN management, printer setup screen.
 5. Waiter phone screen, reception view of open bills, bar till shift open/close + cash count.

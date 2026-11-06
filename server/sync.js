@@ -2,6 +2,7 @@
 //   login (POS user of the UI_Users tab) -> token kept 14 days, logged in again by itself when it expires
 //   pull -> `guests` (24datafeed C + New guest F)  -> local `guests` table for the guest search
 //   push -> op `sale` with payment 'Unpaid'           -> Entries + Entries Manual, so it shows in Guest bills
+//   push -> op `bar_cashout` at the end of a service   -> "BAR Cash-out" row of Entries Manual
 // Bills paid at the bar stay in the POS (the bar has its own cash; the desk records the bar cash-out).
 // Selling never waits for this: when the internet is down, bills stay in the outbox and leave later.
 import { now, setSettings } from './db.js';
@@ -88,6 +89,15 @@ export function saleOp(row, s) {
   };
 }
 
+// Cash of the bar handed over at the end of a service -> one "BAR Cash-out" row of Entries Manual
+// (Rabbit-System op bar_cashout; the POS user needs the manager role there, staff must have an open reception shift).
+export function cashoutOp(row) {
+  const d = JSON.parse(row.payload), v = row.variant || 0;
+  return { id: `POSC-${row.id}-${Date.parse(row.created_at)}${v ? '-' + v : ''}`, type: 'bar_cashout', at: d.at,
+    payload: { ts: tsOf(Date.parse(d.at) + 500 + v * 211), amount: d.amount, comment: d.comment } };
+}
+const OPS = { sale: saleOp, bar_cashout: cashoutOp };
+
 export async function pushOutbox(db, s, { force = false } = {}) {
   if (!sheetReady(s) || state.busy) return 0;
   if (!force && Date.now() < state.retryAt) return 0;   // no connection last time: wait a bit
@@ -96,11 +106,11 @@ export async function pushOutbox(db, s, { force = false } = {}) {
   const fail = (row, msg, bump) => db.prepare('UPDATE outbox SET tries = tries + 1, error = ?, last_try = ?, variant = variant + ? WHERE id = ?')
     .run(String(msg).slice(0, 300), now(), bump ? 1 : 0, row.id);
   try {
-    const rows = db.prepare("SELECT * FROM outbox WHERE sent_at IS NULL AND type = 'sale' ORDER BY id LIMIT 20").all();
+    const rows = db.prepare("SELECT * FROM outbox WHERE sent_at IS NULL AND type IN ('sale', 'bar_cashout') ORDER BY id LIMIT 20").all();
     for (const row of rows) {
       if (!force && row.tries && row.last_try && Date.now() - Date.parse(row.last_try) < retryDelay(row.tries)) continue;
       try {
-        const res = await callSheet(db, s, 'push', { deviceId: s.sheet_device, ops: [saleOp(row, s)] });
+        const res = await callSheet(db, s, 'push', { deviceId: s.sheet_device, ops: [OPS[row.type](row, s)] });
         const r = (res.results || [])[0];
         if (!r) { // stopped before our op (Google busy): try again later
           fail(row, res.message || 'The Sheet was busy, sent again later');
@@ -133,8 +143,8 @@ export function syncStatus(db, s) {
 }
 
 // Started by index.js: guest bills every 30 s; guest list every 30 min (a Rabbit-System pull reads a lot).
-export function startSync(db, getSettings, { send = true } = {}) {
-  const push = () => send ? pushOutbox(db, getSettings()).catch(e => console.error('sheet', e)) : null;
+export function startSync(db, getSettings) {
+  const push = () => pushOutbox(db, getSettings()).catch(e => console.error('sheet', e));
   const guests = () => pullGuests(db, getSettings()).then(n => n != null && console.log(`sheet: ${n} guests`)).catch(e => console.error('sheet', e));
   guests(); push();
   return [setInterval(push, 30000), setInterval(guests, 1800000)];

@@ -4,9 +4,13 @@ import net from 'node:net';
 import { openDb, getSettings, setSettings } from '../server/db.js';
 import { createUser, login, userFromToken, can } from '../server/auth.js';
 import * as O from '../server/orders.js';
+import * as T from '../server/shift.js';
 import { processPrintJobs, Ticket } from '../server/print.js';
 import { seedDemo } from '../server/seed.js';
 import { createApp } from '../server/app.js';
+import { mkdtempSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 function fresh() {
   const db = openDb(':memory:');
@@ -90,6 +94,8 @@ test('charge to the guest sends Unpaid lines for Guest bills; walk-in must pay',
 
   const w = O.createOrder(db, s, { walkin: true, items: [{ productId: prod('Espresso'), qty: 1 }] }, c);
   assert.throws(() => O.closeTab(db, s, w.tabId, { charge: true }, c), /must be paid now/);
+  assert.throws(() => O.closeTab(db, s, w.tabId, { payment: 'Cash' }, c), /Open the bar first/);
+  T.startShift(db, c, { counted: 0 });
   assert.throws(() => O.closeTab(db, s, w.tabId, { payment: 'Gold' }, c), /Unknown payment/);
   assert.throws(() => O.closeTab(db, s, w.tabId, { payment: 'Cash' }, as('2222')), /cannot do this/);
   O.closeTab(db, s, w.tabId, { payment: 'Cash' }, c);
@@ -162,4 +168,77 @@ test('HTTP: staff token and the client ordering key', async () => {
   const o = await call('/api/client/orders?key=k3y', { method: 'POST', body: JSON.stringify({ guestId: g.id, items: [{ productId: pid, qty: 1 }], tabId: 999 }) });
   assert.equal(o.status, 200); assert.equal(o.body.status, 'sent');
   server.close();
+});
+
+test('bar service: opening count, cash expected, difference, BAR Cash-out sent, cards of the day', () => {
+  const { db, as, prod, guest } = fresh();
+  const s = getSettings(db), c = as('4444');
+  const sell = (who, items, close) => { const o = O.createOrder(db, s, { ...who, items: items.map(([n, q]) => ({ productId: prod(n), qty: q })) }, c); return O.closeTab(db, s, o.tabId, close, c); };
+
+  assert.throws(() => T.startShift(db, as('2222'), { counted: 0 }), /cannot do this/);
+  const o1 = T.startShift(db, c, { counted: 200000 });
+  assert.equal(o1.diff, 200000, 'first service: nothing was left before');
+  assert.throws(() => T.startShift(db, c, { counted: 0 }), /already open/);
+
+  sell({ walkin: true }, [['Bintang', 2]], { payment: 'Cash' });          // 80 000 cash
+  sell({ walkin: true }, [['Mojito', 1]], { payment: 'Card' });           // 85 000 card
+  sell({ guestId: guest('Hiro Tanaka') }, [['Burger', 1]], { charge: true }); // guest bill: not in the drawer
+  let sh = T.shiftSummary(db, T.openShift(db));
+  assert.equal(sh.cashSales, 80000); assert.equal(sh.expected, 280000); assert.equal(sh.charged.total, 85000);
+  assert.deepEqual(sh.payments.map(p => [p.payment, p.total]), [['Card', 85000], ['Cash', 80000]]);
+
+  assert.throws(() => T.endShift(db, s, c, { counted: 270000, cashout: 300000 }), /more cash than you counted/);
+  const end = T.endShift(db, s, c, { counted: 270000, cashout: 170000, comment: 'short 10k' });
+  assert.equal(end.diff, -10000); assert.equal(end.left, 100000);
+  const out = db.prepare("SELECT payload FROM outbox WHERE type = 'bar_cashout'").get();
+  assert.equal(JSON.parse(out.payload).amount, 170000);
+  assert.match(JSON.parse(out.payload).comment, /counted 270000, expected 280000, difference -10000 · short 10k/);
+  assert.equal(T.openShift(db), null);
+  assert.throws(() => sell({ walkin: true }, [['Espresso', 1]], { payment: 'Cash' }), /Open the bar first/);
+  sell({ guestId: guest('Hiro Tanaka') }, [['Espresso', 1]], { charge: true }); // a guest bill needs no open bar
+
+  const o2 = T.startShift(db, c, { counted: 95000 });
+  assert.equal(o2.expectedFloat, 100000); assert.equal(o2.diff, -5000);
+  T.endShift(db, s, c, { counted: 95000, cashout: 0 });
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM outbox WHERE type = 'bar_cashout'").get().n, 1, 'nothing handed over: no cash-out line');
+
+  const day = T.dayReport(db);
+  assert.equal(day.cards, 85000); assert.equal(day.charged.total, 85000 + 25000); assert.equal(day.shifts.length, 2);
+});
+
+test('HTTP: product photos kept on this PC, devices keep app files and photos', async () => {
+  const { db, prod } = fresh();
+  const dir = mkdtempSync(join(tmpdir(), 'pos-'));
+  const server = createApp(db, { dataDir: dir }).listen(0);
+  await new Promise(r => server.once('listening', r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const login = async pin => (await (await fetch(base + '/api/login', { method: 'POST', body: JSON.stringify({ pin }) })).json()).token;
+    const owner = await login('1234'), waiter = await login('2222');
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]), Buffer.alloc(40, 7)]);
+    const up = (tok, body, id = prod('Mojito')) => fetch(`${base}/api/products/${id}/photo`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'image/png' }, body });
+    assert.equal((await up(waiter, png)).status, 403);
+    assert.equal((await up(owner, Buffer.from('not a picture at all'))).status, 400);
+    assert.equal((await up(owner, Buffer.alloc(3e6 + 10, 1))).status, 413);
+    const r = await up(owner, png); const { photo } = await r.json();
+    assert.match(photo, /^\/photos\/p\d+-[0-9a-f]{10}\.png$/);
+    assert.ok(existsSync(join(dir, 'photos', photo.split('/').pop())));
+    const img = await fetch(base + photo);
+    assert.equal(img.status, 200); assert.equal(img.headers.get('content-type'), 'image/png');
+    assert.match(img.headers.get('cache-control'), /immutable/);
+    assert.deepEqual(Buffer.from(await img.arrayBuffer()), png);
+    assert.equal((await fetch(base + '/photos/../pos.db')).status, 404);
+
+    // A new picture replaces the old file.
+    const png2 = Buffer.concat([png, Buffer.from('v2')]);
+    const second = (await (await up(owner, png2)).json()).photo;
+    assert.notEqual(second, photo); assert.ok(!existsSync(join(dir, 'photos', photo.split('/').pop())));
+    assert.equal(O.catalog(db).products.find(p => p.name === 'Mojito').photo, second);
+
+    // App files: asked again with their ETag, the server answers 304 (nothing downloaded).
+    const js = await fetch(base + '/pos.js');
+    assert.equal(js.headers.get('cache-control'), 'no-cache');
+    assert.equal((await fetch(base + '/pos.js', { headers: { 'If-None-Match': js.headers.get('etag') } })).status, 304);
+    assert.equal((await fetch(base + '/manifest.webmanifest')).headers.get('content-type'), 'application/manifest+json');
+  } finally { server.closeAllConnections(); server.close(); }
 });
