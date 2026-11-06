@@ -2,6 +2,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { ensureStations } from './stations.js';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -35,6 +36,10 @@ CREATE TABLE IF NOT EXISTS outbox (
 CREATE TABLE IF NOT EXISTS shifts (
   id INTEGER PRIMARY KEY, opened_at TEXT NOT NULL, opened_by INTEGER, float INTEGER NOT NULL, open_diff INTEGER, open_comment TEXT,
   closed_at TEXT, closed_by INTEGER, counted INTEGER, cashout INTEGER, expected INTEGER, diff INTEGER, comment TEXT);
+CREATE TABLE IF NOT EXISTS stations (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL, host TEXT, port INTEGER NOT NULL DEFAULT 9100,
+  width INTEGER NOT NULL DEFAULT 48, copy_all INTEGER NOT NULL DEFAULT 0, sheet_object TEXT,
+  active INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS log (
   id INTEGER PRIMARY KEY, at TEXT NOT NULL, user_id INTEGER, action TEXT NOT NULL, detail TEXT);
 `;
@@ -63,7 +68,7 @@ export const DEFAULT_SETTINGS = {
   client_key: '',                 // secret in the QR link; set on first start
   till: 'bar',                    // 'bar' = its own cash drawer; 'reception' = counted in the reception shift
   payments: ['Cash', 'Card', 'QRIS'],
-  printers: {},                   // { bar: {host, port}, kitchen: {...}, receipt: {...} }
+  printers: {},                   // old printer settings, moved into the stations table (server/stations.js)
   venue_name: 'Rabbit Tree',
 };
 
@@ -76,7 +81,10 @@ export function openDb(file = 'data/pos.db') {
   const has = (t, c) => db.prepare(`PRAGMA table_info(${t})`).all().some(r => r.name === c);
   if (!has('outbox', 'last_try')) db.exec('ALTER TABLE outbox ADD COLUMN last_try TEXT');
   if (!has('tabs', 'shift_id')) db.exec('ALTER TABLE tabs ADD COLUMN shift_id INTEGER');
+  if (!has('shifts', 'till')) db.exec("ALTER TABLE shifts ADD COLUMN till TEXT NOT NULL DEFAULT 'receipt'");
+  if (!has('tabs', 'till')) db.exec('ALTER TABLE tabs ADD COLUMN till TEXT');
   if (!has('outbox', 'variant')) db.exec('ALTER TABLE outbox ADD COLUMN variant INTEGER NOT NULL DEFAULT 0');
+  ensureStations(db);
   return db;
 }
 

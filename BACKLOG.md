@@ -35,6 +35,11 @@ Une entrée par sujet : où ça se corrige, pourquoi, et ce qu'il faut faire. Co
 - **À faire :** au démarrage, `start.bat` télécharge la dernière version depuis GitHub (sans toucher à `data/` ni aux photos ajoutées sur le PC), puis lance la caisse.
 - **Noté le :** 06/11/2026
 
+### 6. [ ] Script « POS Bar » : nom des nouveaux postes
+- **Où :** projet Apps Script « POS » (script `POS-Bar-script.gs`).
+- **Problème :** la colonne « Bar / Kitchen » de l'onglet POS Bar n'affiche que Bar ou Kitchen. Avec les nouveaux postes (Pizza, Bar plage…), il faut recoller le script mis à jour (`bridge/journal.gs`, en gardant l'ID et le secret) puis Deploy › Manage deployments › Edit › New version.
+- **Noté le :** 06/11/2026
+
 ## Réglé
 
 _(rien pour l'instant)_

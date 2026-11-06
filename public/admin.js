@@ -25,7 +25,7 @@ const SECTIONS = [
   { id: 'menu', name: 'Menu & photos', roles: ['owner', 'manager'], draw: drawMenu },
   { id: 'import', name: 'Import from Loyverse', roles: ['owner', 'manager'], draw: drawImport },
   { id: 'staff', name: 'Staff & PINs', roles: ['owner'], draw: drawStaff },
-  { id: 'printers', name: 'Printers', roles: ['owner', 'manager'], draw: drawPrinters },
+  { id: 'printers', name: 'Stations & printers', roles: ['owner', 'manager'], draw: drawPrinters },
   { id: 'sheet', name: 'Google Sheet', roles: ['owner'], draw: drawSheet },
   { id: 'qr', name: 'QR codes', roles: ['owner', 'manager'], draw: () => { location.href = '/qr.html'; } },
 ];
@@ -83,10 +83,13 @@ async function drawOptions() {
 
 // ---------- menu & photos ----------
 let C = null, cat = 0;
-const STATION = { bar: 'Bar', kitchen: 'Kitchen' };
+let STATIONS = [];   // preparation stations, loaded with the menu
+const preps = () => STATIONS.filter(x => x.kind === 'prep' && x.active);
+const stName = id => STATIONS.find(x => x.id === id)?.name || id;
+const stOptions = sel => preps().map(x => `<option value="${esc(x.id)}" ${sel === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
 const COLORS = ['orange', 'teal', 'sky', 'coral', 'violet', 'gray'];
 async function drawMenu() {
-  C = await api('/api/admin/catalog');
+  [C, STATIONS] = await Promise.all([api('/api/admin/catalog'), api('/api/admin/stations')]);
   if (!C.categories.some(c => c.id === cat)) cat = C.categories[0]?.id || 0;
   const c = C.categories.find(x => x.id === cat);
   const list = C.products.filter(p => p.categoryId === cat);
@@ -95,7 +98,7 @@ async function drawMenu() {
       <button class="add" data-newcat="1">+ Category</button></nav>
     ${c ? `<div class="card"><div class="row">
       <label class="f">Category name<input class="i" id="cName" value="${esc(c.name)}" maxlength="40"></label>
-      <label class="f">Tickets print at<select class="i" id="cStation">${Object.entries(STATION).map(([k, v]) => `<option value="${k}" ${c.station === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
+      <label class="f">Tickets print at<select class="i" id="cStation">${stOptions(c.station)}</select></label>
       <label class="f">Colour<select class="i" id="cColor">${COLORS.map(k => `<option ${c.color === k ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
       <button class="btn ghost" data-savecat="1">Save category</button>
       ${c.products ? '' : '<button class="btn bad" data-delcat="1">Delete</button>'}</div></div>
@@ -105,12 +108,12 @@ async function drawMenu() {
           ${p.photo ? `<button class="btn" style="min-height: 28px; padding: 0 4px; font-size: 12px; color: var(--bad)" data-nophoto="${p.id}">remove</button>` : ''}</td>
         <td><input class="i" data-f="name" value="${esc(p.name)}" maxlength="60" aria-label="Name"></td>
         <td><input class="i money" data-f="price" inputmode="numeric" value="${p.price}" aria-label="Price"></td>
-        <td><select class="i" data-f="station" aria-label="Prints at"><option value="">Like the category</option>${Object.entries(STATION).map(([k, v]) => `<option value="${k}" ${p.station === k ? 'selected' : ''}>${v}</option>`).join('')}</select></td>
+        <td><select class="i" data-f="station" aria-label="Prints at"><option value="">Like the category</option>${stOptions(p.station)}</select></td>
         <td>${sw('active', p.active, 'On sale')}</td>
         <td><button class="btn ghost" data-saveprod="${p.id}">Save</button></td></tr>`).join('')}
       <tr data-id="0"><td></td><td><input class="i" data-f="name" placeholder="New item" maxlength="60" aria-label="New item name"></td>
         <td><input class="i money" data-f="price" inputmode="numeric" placeholder="0" aria-label="New item price"></td>
-        <td><select class="i" data-f="station" aria-label="Prints at"><option value="">Like the category</option>${Object.entries(STATION).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></td>
+        <td><select class="i" data-f="station" aria-label="Prints at"><option value="">Like the category</option>${stOptions(null)}</select></td>
         <td></td><td><button class="btn go" data-saveprod="0">Add</button></td></tr>
     </tbody></table></div>` : '<div class="card">Add a first category, or import your menu from Loyverse.</div>'}`;
   const rowBody = tr => ({ name: tr.querySelector('[data-f=name]').value, price: tr.querySelector('[data-f=price]').value,
@@ -158,11 +161,12 @@ function drawImport() {
     <div id="plan"></div>`;
   $('csv').onchange = run(async () => {
     csvText = await $('csv').files[0].text();
+    STATIONS = await api('/api/admin/stations');
     const p = await api('/api/admin/import', { method: 'POST', body: { csv: csvText } });
     const li = (l, f) => l.length ? `<ul class="preview">${l.slice(0, 200).map(f).join('')}</ul>` : '<div class="hint">none</div>';
     $('plan').innerHTML = `<div class="card"><h3>Before importing</h3>
       <div class="status ok">${p.add.length} new item(s), ${p.update.length} new price(s), ${p.newCategories.length} new categorie(s), ${p.same} unchanged</div>
-      <b>New categories</b>${li(p.newCategories, c => `<li>${esc(c.name)} → ${STATION[c.station]}</li>`)}
+      <b>New categories</b>${li(p.newCategories, c => `<li>${esc(c.name)} → ${esc(stName(c.station))}</li>`)}
       <b>New items</b>${li(p.add, i => `<li>${esc(i.name)} · ${esc(i.category)} · ${rp(i.price)}${i.active ? '' : ' (not on sale)'}</li>`)}
       <b>New prices</b>${li(p.update, i => `<li>${esc(i.name)}: ${rp(i.oldPrice)} → ${rp(i.price)}</li>`)}
       <div><button class="btn go" id="doImport" ${p.add.length || p.update.length || p.newCategories.length ? '' : 'disabled'}>Import now</button></div></div>`;
@@ -201,26 +205,33 @@ async function drawStaff() {
   });
 }
 
-// ---------- printers ----------
+// ---------- stations & printers ----------
+// Preparation points (bar, kitchen, pizza…) get their own tickets; tills (bar, beach…) print receipts and have a drawer.
 async function drawPrinters() {
-  const st = await api('/api/state');
-  const P = st.settings.printers || {};
-  const row = (k, label) => `<div class="card"><b>${label}</b><div class="row">
-    <label class="f">Address on the wifi<input class="i" data-p="${k}" data-f="host" value="${esc(P[k]?.host || '')}" placeholder="192.168.1.50"></label>
-    <label class="f" style="flex: 0 0 90px">Port<input class="i" data-p="${k}" data-f="port" value="${P[k]?.port || 9100}" inputmode="numeric"></label>
-    <label class="f" style="flex: 0 0 150px">Paper<select class="i" data-p="${k}" data-f="width"><option value="48" ${(P[k]?.width || 48) === 48 ? 'selected' : ''}>80 mm</option>
-      <option value="32" ${P[k]?.width === 32 ? 'selected' : ''}>58 mm</option></select></label>
-    <button class="btn ghost" data-test="${k}">Print a test</button></div></div>`;
-  const waiting = (st.print || []).filter(j => j.status !== 'done');
-  $('main').innerHTML = head('Printers', 'Network (LAN) receipt printers. The address is printed on the self-test page of the printer (hold FEED while switching it on).') +
-    row('bar', 'Bar tickets') + row('kitchen', 'Kitchen tickets') + row('receipt', 'Receipts (and cash drawer)') +
-    `<div><button class="btn go" id="savePr">Save</button></div>
-    <div class="card"><b>Waiting to print</b>${waiting.length ? waiting.map(j => `<div class="status warn">${esc(j.station)} · ${esc(j.label || '')} · ${esc(j.error || 'waiting')}</div>`).join('') : '<div class="hint">Nothing waiting.</div>'}</div>`;
-  const collect = () => { const o = {}; document.querySelectorAll('[data-p]').forEach(i => { (o[i.dataset.p] ||= {})[i.dataset.f] = i.dataset.f === 'host' ? i.value.trim() : Number(i.value); }); return o; };
+  const [list, st] = await Promise.all([api('/api/admin/stations'), api('/api/state')]);
+  const card = x => `<div class="card" data-sid="${esc(x.id)}" style="${x.active ? '' : 'opacity: .55'}">
+    <div class="row"><label class="f">${x.kind === 'prep' ? 'Preparation point' : 'Till (receipts, cash drawer)'}<input class="i" data-f="name" value="${esc(x.name)}" maxlength="30"></label>
+      <label class="f">Printer address on the wifi<input class="i" data-f="host" value="${esc(x.host || '')}" placeholder="192.168.1.50"></label>
+      <label class="f" style="flex: 0 0 90px">Port<input class="i" data-f="port" value="${x.port}" inputmode="numeric"></label>
+      <label class="f" style="flex: 0 0 120px">Paper<select class="i" data-f="width"><option value="48" ${x.width === 48 ? 'selected' : ''}>80 mm</option><option value="32" ${x.width === 32 ? 'selected' : ''}>58 mm</option></select></label></div>
+    <div class="row">${x.kind === 'prep' ? `<label class="f">In Entries (guest bills) as<input class="i" data-f="sheetObject" value="${esc(x.sheet_object || 'Bar')}" maxlength="40"></label>
+      <label class="f" style="flex: 0 0 auto; flex-direction: row; align-items: center; gap: 8px"><input type="checkbox" data-f="copyAll" ${x.copy_all ? 'checked' : ''}> Gets a copy of every order (pass)</label>` : ''}
+      <label class="f" style="flex: 0 0 auto; flex-direction: row; align-items: center; gap: 8px"><input type="checkbox" data-f="active" ${x.active ? 'checked' : ''}> In use</label>
+      <button class="btn ghost" data-savest="${esc(x.id)}">Save</button><button class="btn line" data-test="${esc(x.id)}" ${x.host ? '' : 'disabled'}>Print a test</button></div></div>`;
+  const waiting = (st.print || []).filter(j => j.status !== 'done' && j.status !== 'printed');
+  $('main').innerHTML = head('Stations & printers', 'Each preparation point gets only its own lines of an order; a mixed order is split. Each till prints its receipts and has its own cash drawer and service. The printer address is on its self-test page (hold FEED while switching it on).') +
+    `<h3>Preparation points</h3>${list.filter(x => x.kind === 'prep').map(card).join('')}
+    <div><button class="btn line" data-addst="prep">+ Preparation point</button></div>
+    <h3>Tills</h3>${list.filter(x => x.kind === 'till').map(card).join('')}
+    <div><button class="btn line" data-addst="till">+ Till</button></div>
+    <div class="card"><b>Waiting to print</b>${waiting.length ? waiting.map(j => `<div class="status warn">${esc(stName(j.station))} · ${esc(j.label || '')} · ${esc(j.error || 'waiting')}</div>`).join('') : '<div class="hint">Nothing waiting.</div>'}</div>`;
+  STATIONS = list;
+  const body = el => { const o = {}; el.querySelectorAll('[data-f]').forEach(i => { o[i.dataset.f] = i.type === 'checkbox' ? i.checked : i.dataset.f === 'port' || i.dataset.f === 'width' ? Number(i.value) : i.value.trim(); }); return o; };
   $('main').onclick = run(async e => {
-    if (e.target.id === 'savePr') { await api('/api/admin/printers', { method: 'PUT', body: collect() }); toast('Saved'); return drawPrinters(); }
-    const t = e.target.closest('[data-test]');
-    if (t) { await api('/api/admin/printers', { method: 'PUT', body: collect() }); await api('/api/admin/printers/test', { method: 'POST', body: { station: t.dataset.test } }); toast('Test sent: check the printer'); }
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.addst) { await api('/api/admin/stations', { method: 'POST', body: { name: b.dataset.addst === 'prep' ? 'New point' : 'New till', kind: b.dataset.addst } }); toast('Added: name it and set its printer'); return drawPrinters(); }
+    if (b.dataset.savest) { await api(`/api/admin/stations/${b.dataset.savest}`, { method: 'PUT', body: body(b.closest('[data-sid]')) }); toast('Saved'); return drawPrinters(); }
+    if (b.dataset.test) { await api('/api/admin/printers/test', { method: 'POST', body: { station: b.dataset.test } }); toast('Test sent: check the printer'); }
   });
 }
 

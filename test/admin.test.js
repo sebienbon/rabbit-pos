@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { openDb, getSettings, setSettings } from '../server/db.js';
 import { createUser, login, userFromToken } from '../server/auth.js';
 import * as A from '../server/admin.js';
+import * as ST from '../server/stations.js';
 import * as O from '../server/orders.js';
 import { seedDemo } from '../server/seed.js';
 import { createApp } from '../server/app.js';
@@ -86,15 +87,13 @@ test('staff: PINs are personal, a disabled person is logged out, one owner alway
   assert.equal(A.listUsers(db, owner).find(u => u.id === owner.id).role, 'owner');
 });
 
-test('printers: addresses checked, test ticket sent to the right one', async () => {
+test('printers: test ticket sent to the station printer', async () => {
   const { db, as } = fresh();
   const mgr = as('1111');
-  assert.throws(() => A.savePrinters(db, mgr, { bar: { host: 'not an ip!' } }), /192.168/);
-  A.savePrinters(db, mgr, { bar: { host: '192.168.1.50', port: 9100, width: 48 }, kitchen: { host: '' }, receipt: { host: '192.168.1.51', width: 32 } });
-  assert.deepEqual(getSettings(db).printers, { bar: { host: '192.168.1.50', port: 9100, width: 48 }, receipt: { host: '192.168.1.51', port: 9100, width: 32 } });
+  ST.saveStation(db, mgr, 'bar', { name: 'Bar', host: '192.168.1.50', port: 9100, width: 48, sheetObject: 'Bar' });
   const sent = [];
   await A.testPrinter(db, mgr, 'bar', async (p, data) => sent.push([p.host, data.toString('latin1')]));
-  assert.equal(sent[0][0], '192.168.1.50'); assert.match(sent[0][1], /Test bar printer/);
+  assert.equal(sent[0][0], '192.168.1.50'); assert.match(sent[0][1], /Test: Bar/);
   await assert.rejects(A.testPrinter(db, mgr, 'kitchen'), /Save the printer address/);
   await assert.rejects(A.testPrinter(db, mgr, 'bar', async () => { throw Object.assign(new Error('x'), { code: 'ECONNREFUSED' }); }), /No answer from 192.168.1.50:9100 \(ECONNREFUSED\)/);
 });

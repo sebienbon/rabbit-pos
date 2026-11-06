@@ -74,7 +74,7 @@ function detail(t) {
 document.addEventListener('click', run(async e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.id) { sel = Number(b.dataset.id); return draw(); }
-  if (b.dataset.print) { await api(`/api/tabs/${b.dataset.print}/print-bill`, { method: 'POST' }); return toast('Bill sent to the printer'); }
+  if (b.dataset.print) { await api(`/api/tabs/${b.dataset.print}/print-bill`, { method: 'POST', body: { till: store.get('till') || undefined } }); return toast('Bill sent to the printer'); }
   if (b.dataset.charge) { await api(`/api/tabs/${b.dataset.charge}/charge`, { method: 'POST' }); toast('On the room bill: it reaches Rabbit-System in a few seconds'); return load(); }
 }));
 

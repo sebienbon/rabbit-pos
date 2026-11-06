@@ -56,7 +56,7 @@ function addBill_(ss, id, b) {
     var kind = { guest: 'Guest', external: 'External', walkin: 'Walk-in' }[b.kind] || String(b.kind || '');
     var rows = b.lines.map(function (l) {
       return [day, time, Number(b.tabId) || '', String(b.who || ''), kind, String(b.table || ''), String(l.product || ''),
-        String(l.category || ''), l.station === 'kitchen' ? 'Kitchen' : 'Bar', Number(l.qty) || 0, Number(l.unit) || 0,
+        String(l.category || ''), String(l.stationName || (l.station === 'kitchen' ? 'Kitchen' : 'Bar')), Number(l.qty) || 0, Number(l.unit) || 0,
         Number(l.total) || 0, String(b.pay || ''), b.shiftId ? Number(b.shiftId) : '', String(b.author || ''), id];
     });
     var r = last + 1;

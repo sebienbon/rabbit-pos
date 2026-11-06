@@ -53,6 +53,12 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
 - `public/reception.*` reception view (`/reception.html`; the till sends the reception role there): open bar bills with
   lines (when, where, drink/food), print the bill, put on the room bill; bills charged today/yesterday (`/api/tabs-charged`).
   The reception takes no money for the bar here: it collects room bills in Rabbit-System's Guest bills as usual.
+- `server/stations.js` stations table: kind `prep` (Bar, Kitchen, Pizza…: own tickets, mixed orders split; `copy_all` =
+  pass gets every order; `sheet_object` = Entries object of guest-bill lines made there) and kind `till` (Bar till,
+  Beach till…: receipts, drawer, its own service — shifts.till, tabs.till). Device's till in localStorage `till`, sent
+  as `till` (state query, pay, charge, print-bill, shift). Ids are text (route param `:sid`). Old `settings.printers` migrated.
+- `docs/PLAN-STOCK.md` (French): plan A–G (stations ✅, recipes/costing, theoretical usage, staff counts, waste,
+  purchasing with suggested orders, seasonality).
 - `public/pos.*` till screen (PIN + sell + bills + guest-order validation + "Sheet" chip when sales wait)
 - `test/core.test.js`, `test/sync.test.js` — `npm test` must stay green. sync tests run Rabbit-System's REAL
   30.UI_api.gs in node:vm (`test/helpers/gas-fake.js`); set RABBIT_SYSTEM_GS=path/to/30.UI_api.gs, else 3 are skipped.
@@ -76,4 +82,5 @@ and is ticked when done. Read it before calling the project finished.
 3. ✅ Guest ordering pages (QR phone + self-service tablet) + printable QR codes. Photo upload screen → phase 4.
 4. ✅ Back office: options, menu + photos, Loyverse import, staff/PINs, printers, Google Sheet settings.
 5. ✅ Waiter phone, reception view of the bar's bills (bar service open/close + cash count was done in 2b).
+5b. ✅ Stations & tills (PLAN-STOCK A). Next: B recipes/ingredients (needs the owner's ingredient list).
 6. Windows install: Node + `start.bat` at boot, daily backup of `data/pos.db`.

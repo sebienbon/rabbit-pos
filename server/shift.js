@@ -5,6 +5,7 @@
 import { PosError, now, tx, logAction } from './db.js';
 import { need } from './auth.js';
 import { events } from './orders.js';
+import { tillFor } from './stations.js';
 
 const money = (v, what) => {
   const n = Math.round(Number(v));
@@ -13,12 +14,14 @@ const money = (v, what) => {
 };
 const emit = () => events.emit('change', { type: 'shift' });
 
-export function openShift(db) {
-  return db.prepare("SELECT * FROM shifts WHERE closed_at IS NULL ORDER BY id DESC LIMIT 1").get() || null;
+// Each till has its own drawer and its own service.
+export function openShift(db, till) {
+  const t = tillFor(db, till).id;
+  return db.prepare("SELECT * FROM shifts WHERE closed_at IS NULL AND till = ? ORDER BY id DESC LIMIT 1").get(t) || null;
 }
 // Cash left in the drawer after the last service (counted - handed over): what the next opening should find.
-function leftInDrawer(db) {
-  const last = db.prepare('SELECT counted, cashout FROM shifts WHERE closed_at IS NOT NULL ORDER BY id DESC LIMIT 1').get();
+function leftInDrawer(db, till) {
+  const last = db.prepare('SELECT counted, cashout FROM shifts WHERE closed_at IS NOT NULL AND till = ? ORDER BY id DESC LIMIT 1').get(till);
   return last ? last.counted - last.cashout : 0;
 }
 
@@ -32,14 +35,15 @@ export function shiftSummary(db, shift) {
   return { ...shift, payments: pays, charged, cashSales: cash, expected: shift.float + cash };
 }
 
-export function startShift(db, user, { counted, comment }) {
+export function startShift(db, user, { counted, comment, till }) {
   need(user, 'take_payment');
+  const t = tillFor(db, till);
   const res = tx(db, () => {
-    if (openShift(db)) throw new PosError('shift_open', 'The bar is already open');
+    if (openShift(db, t.id)) throw new PosError('shift_open', `${t.name} is already open`);
     const float = money(counted, 'cash counted');
-    const ref = leftInDrawer(db);
-    const id = Number(db.prepare(`INSERT INTO shifts (opened_at, opened_by, float, open_diff, open_comment) VALUES (?, ?, ?, ?, ?)`)
-      .run(now(), user.id, float, float - ref, String(comment || '').slice(0, 300)).lastInsertRowid);
+    const ref = leftInDrawer(db, t.id);
+    const id = Number(db.prepare(`INSERT INTO shifts (opened_at, opened_by, float, open_diff, open_comment, till) VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(now(), user.id, float, float - ref, String(comment || '').slice(0, 300), t.id).lastInsertRowid);
     logAction(db, user.id, 'shift_open', { id, float, diff: float - ref });
     return { id, float, expectedFloat: ref, diff: float - ref };
   });
@@ -48,11 +52,12 @@ export function startShift(db, user, { counted, comment }) {
 }
 
 // counted: cash in the drawer now; cashout: part of it handed to the reception / owner (written as BAR Cash-out).
-export function endShift(db, settings, user, { counted, cashout, comment }) {
+export function endShift(db, settings, user, { counted, cashout, comment, till }) {
   need(user, 'take_payment');
+  const t = tillFor(db, till);
   const res = tx(db, () => {
-    const sh = shiftSummary(db, openShift(db));
-    if (!sh) throw new PosError('no_shift', 'The bar is not open');
+    const sh = shiftSummary(db, openShift(db, t.id));
+    if (!sh) throw new PosError('no_shift', `${t.name} is not open`);
     const c = money(counted, 'cash counted'), out = money(cashout ?? 0, 'cash handed over');
     if (out > c) throw new PosError('bad_amount', 'You cannot hand over more cash than you counted');
     const diff = c - sh.expected, at = now(), note = String(comment || '').slice(0, 300);
@@ -60,7 +65,7 @@ export function endShift(db, settings, user, { counted, cashout, comment }) {
       .run(at, user.id, c, out, sh.expected, diff, note, sh.id);
     if (out > 0 && settings.sheet_sync) db.prepare('INSERT INTO outbox (type, payload, created_at) VALUES (?, ?, ?)').run('bar_cashout', JSON.stringify({
       shiftId: sh.id, at, amount: out,
-      comment: `Bar POS service #${sh.id}: counted ${c}, expected ${sh.expected}, difference ${diff}${note ? ' · ' + note : ''}`.slice(0, 300),
+      comment: `${t.name} service #${sh.id}: counted ${c}, expected ${sh.expected}, difference ${diff}${note ? ' · ' + note : ''}`.slice(0, 300),
     }), at);
     logAction(db, user.id, 'shift_close', { id: sh.id, counted: c, cashout: out, diff });
     return { ...shiftSummary(db, db.prepare('SELECT * FROM shifts WHERE id = ?').get(sh.id)), left: c - out };

@@ -64,7 +64,7 @@ $('meBtn').onclick = logout;
 
 // ---------- state ----------
 async function load() {
-  S = await api('/api/state');
+  S = await api('/api/state?till=' + encodeURIComponent(myTill()));
   // The reception has its own view of the bar's bills.
   if (S.user.role === 'reception') { location.href = '/reception.html'; return; }
   draw();
@@ -191,8 +191,8 @@ $('payBtn').onclick = run(async () => {
       Put on the guest bill<small>Paid at the reception</small></button>` : ''}
     <button class="btn line2" data-close="1">Cancel</button>`, run(async b => {
     if (b.dataset.bar) return openBar();
-    if (b.dataset.pay) await api(`/api/tabs/${id}/pay`, { method: 'POST', body: { payment: b.dataset.pay } });
-    else if (b.dataset.charge) await api(`/api/tabs/${id}/charge`, { method: 'POST' });
+    if (b.dataset.pay) await api(`/api/tabs/${id}/pay`, { method: 'POST', body: { payment: b.dataset.pay, till: S.till } });
+    else if (b.dataset.charge) await api(`/api/tabs/${id}/charge`, { method: 'POST', body: { till: S.till } });
     else return close();
     close(); toast(b.dataset.charge ? 'Added to the guest bill' : 'Paid');
     cur = { tabId: null, who: null, cart: [] }; await load();
@@ -245,25 +245,40 @@ $('pendingBox').onclick = run(async e => {
 
 // ---------- bar service (cash drawer of the bar) ----------
 const barClosed = () => S.settings.till === 'bar' && !S.shift;
+// Which till this device works at (several tills: bar, beach…). Kept on the device.
+function myTill() { try { return localStorage.getItem('till') || ''; } catch { return ''; } }
+const tillName = () => S.stations.find(x => x.id === S.till)?.name || 'Till';
+function chooseTill() {
+  const tills = S.stations.filter(x => x.kind === 'till');
+  open(`<h2>This device is at</h2>${tills.map(t => `<button class="opt" data-till="${esc(t.id)}" ${t.id === S.till ? 'style="outline: 3px solid var(--violet)"' : ''}>${esc(t.name)}</button>`).join('')}
+    <div class="split"><button class="btn line2" data-close="1">Cancel</button></div>`, run(async b => {
+    if (!b.dataset.till) return;
+    try { localStorage.setItem('till', b.dataset.till); } catch {}
+    close(); await load();
+  }));
+}
 function drawBar() {
   $('adminBtn').classList.toggle('hidden', !['owner', 'manager'].includes(S.user.role));
   const b = $('barBtn'), show = S.settings.till === 'bar' && can('pay');
   b.classList.toggle('hidden', !show);
   b.classList.toggle('warn', !S.shift);
-  b.textContent = S.shift ? 'Bar open' : 'Bar closed';
+  b.textContent = `${tillName()} · ${S.shift ? 'open' : 'closed'}`;
+  const tc = $('tillBtn');
+  tc.classList.toggle('hidden', !show || S.stations.filter(x => x.kind === 'till').length < 2);
+  tc.textContent = 'Change till';
 }
 const num = v => Math.round(Number(String(v).replace(/[^\d]/g, '')) || 0);
 function moneyInput(id, label, value = '') {
   return `<label style="font-weight: 800">${label}<input id="${id}" inputmode="numeric" autocomplete="off" value="${value}" placeholder="Rp"></label>`;
 }
 function openBar() {
-  open(`<h2>Open the bar</h2>
+  open(`<h2>Open ${esc(tillName())}</h2>
     <div style="color: var(--ink-soft); font-weight: 700">Count the cash in the bar drawer before the first sale.</div>
     ${moneyInput('cnt', 'Cash in the drawer')}
     <div class="split"><button class="btn line2" data-close="1">Cancel</button><button class="btn go" data-ok="1">Open</button></div>`, run(async b => {
     if (!b.dataset.ok) return;
     if ($('cnt').value.trim() === '') return toast('Type the cash counted (0 if empty)', true);
-    const r = await api('/api/shift/open', { method: 'POST', body: { counted: num($('cnt').value) } });
+    const r = await api('/api/shift/open', { method: 'POST', body: { counted: num($('cnt').value), till: S.till } });
     close();
     toast(r.diff ? `Bar open. ${r.diff > 0 ? 'More' : 'Less'} than left last time: ${rp(Math.abs(r.diff))}` : 'Bar open', !!r.diff);
     await load();
@@ -274,7 +289,7 @@ async function closeBar() {
   const sh = S.shift, day = await api('/api/report/day');
   const pays = sh.payments.map(p => `<div class="row"><span>${esc(p.payment)} · ${p.n} bill${p.n > 1 ? 's' : ''}</span><span>${rp(p.total)}</span></div>`).join('')
     || '<div class="row"><span>No paid bill</span><span></span></div>';
-  open(`<h2>Close the bar</h2>
+  open(`<h2>Close ${esc(tillName())}</h2>
     <div style="display: grid; gap: 6px">
       <div class="row"><span>Cash at opening</span><span>${rp(sh.float)}</span></div>${pays}
       <div class="row"><span>On guest bills · ${sh.charged.n}</span><span>${rp(sh.charged.total)}</span></div>
@@ -288,7 +303,7 @@ async function closeBar() {
     <div class="split"><button class="btn line2" data-close="1">Cancel</button><button class="btn go" data-ok="1">Close the bar</button></div>`, run(async b => {
     if (!b.dataset.ok) return;
     if ($('cnt').value.trim() === '') return toast('Type the cash counted', true);
-    const r = await api('/api/shift/close', { method: 'POST', body: { counted: num($('cnt').value), cashout: num($('out').value), comment: $('note').value } });
+    const r = await api('/api/shift/close', { method: 'POST', body: { counted: num($('cnt').value), cashout: num($('out').value), comment: $('note').value, till: S.till } });
     close();
     toast(`Bar closed · difference ${r.diff >= 0 ? '+' : '−'}${rp(Math.abs(r.diff))} · ${rp(r.left)} left in the drawer`, r.diff !== 0);
     await load();
@@ -302,6 +317,7 @@ async function closeBar() {
   $('cnt').focus();
 }
 $('barBtn').onclick = run(() => S.shift ? closeBar() : openBar());
+$('tillBtn').onclick = run(() => chooseTill());
 
 // ---------- dialog ----------
 let onPick = null, onCancel = null;

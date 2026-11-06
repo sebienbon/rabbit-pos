@@ -5,6 +5,7 @@ import { PosError, now, tx, logAction } from './db.js';
 import { need } from './auth.js';
 import { queueOrderTickets, queueReceipt, queueBill } from './print.js';
 import { openShift } from './shift.js';
+import { tillFor, getStation } from './stations.js';
 
 export const events = new EventEmitter();
 events.setMaxListeners(100);
@@ -106,12 +107,12 @@ export function getTab(db, settings, id) {
 }
 
 // The bill on paper before paying (nothing is closed).
-export function printBill(db, settings, tabId, user) {
+export function printBill(db, settings, tabId, user, till) {
   need(user, 'view_tabs');
   const tab = getTab(db, settings, tabId);
   if (tab.status !== 'open') throw new PosError('closed', 'This tab is already closed');
   if (tab.total <= 0) throw new PosError('empty', 'Nothing on this tab yet');
-  queueBill(db, settings, tab);
+  queueBill(db, settings, tab, till);
   logAction(db, user.id, 'print_bill', { tabId });
   return { ok: true };
 }
@@ -198,7 +199,7 @@ export function voidItem(db, itemId, user) {
 // ---------- closing a tab ----------
 // Paid here (bar till), or charged to the guest: the lines go to the sheet as "Unpaid"
 // and the guest settles at the reception, in Rabbit-System's Guest bills.
-export function closeTab(db, settings, tabId, { payment, charge = false }, user) {
+export function closeTab(db, settings, tabId, { payment, charge = false, till }, user) {
   need(user, charge ? 'charge' : 'take_payment');
   const res = tx(db, () => {
     const tab = getTab(db, settings, tabId);
@@ -207,8 +208,9 @@ export function closeTab(db, settings, tabId, { payment, charge = false }, user)
       throw new PosError('pending', 'An order of this tab still waits for validation');
     if (tab.total <= 0) throw new PosError('empty', 'Nothing to pay on this tab');
     // Bar till: money taken here goes in the drawer of the open service.
-    const shift = openShift(db);
-    if (!charge && settings.till === 'bar' && !shift) throw new PosError('no_shift', 'Open the bar first (count the cash in the drawer)');
+    const tl = tillFor(db, till);
+    const shift = openShift(db, tl.id);
+    if (!charge && settings.till === 'bar' && !shift) throw new PosError('no_shift', `Open ${tl.name} first (count the cash in the drawer)`);
     let pay;
     if (charge) {
       // Only a hostel guest has a bill at the reception; an external guest pays at the bar.
@@ -220,21 +222,22 @@ export function closeTab(db, settings, tabId, { payment, charge = false }, user)
     }
     const at = now();
     db.prepare(`UPDATE tabs SET status = ?, closed_at = ?, closed_by = ?, payment = ?, subtotal = ?, service = ?, tax = ?, total = ?, shift_id = ?
-      WHERE id = ?`).run(charge ? 'charged' : 'paid', at, user.id, pay, tab.subtotal, tab.service, tab.tax, tab.total, shift?.id ?? null, tabId);
+      , till = ? WHERE id = ?`).run(charge ? 'charged' : 'paid', at, user.id, pay, tab.subtotal, tab.service, tab.tax, tab.total, shift?.id ?? null, tl.id, tabId);
     const lines = [];
     for (const o of tab.orders) for (const i of o.items) if (!i.voided)
-      lines.push({ product: i.name, category: i.category, station: i.station, qty: i.qty, unit: i.unit_price, total: i.qty * i.unit_price });
-    if (tab.service) lines.push({ product: `Service ${settings.service_rate}%`, category: 'Service', station: 'bar', qty: 1, unit: tab.service, total: tab.service });
-    if (tab.tax) lines.push({ product: `Tax ${settings.tax_rate}%`, category: 'Tax', station: 'bar', qty: 1, unit: tab.tax, total: tab.tax });
+      lines.push({ product: i.name, category: i.category, station: i.station, stationName: getStation(db, i.station)?.name || i.station,
+        object: getStation(db, i.station)?.sheet_object || null, qty: i.qty, unit: i.unit_price, total: i.qty * i.unit_price });
+    if (tab.service) lines.push({ product: `Service ${settings.service_rate}%`, category: 'Service', station: 'bar', stationName: tl.name, object: null, qty: 1, unit: tab.service, total: tab.service });
+    if (tab.tax) lines.push({ product: `Tax ${settings.tax_rate}%`, category: 'Tax', station: 'bar', stationName: tl.name, object: null, qty: 1, unit: tab.tax, total: tab.tax });
     // Only a bill put on the guest goes to the Sheet (Guest bills); a bill paid here stays in the bar's own till.
     if (settings.sheet_sync && charge) db.prepare('INSERT INTO outbox (type, payload, created_at) VALUES (?, ?, ?)').run('sale', JSON.stringify({
-      tabId, at, guest: tab.kind === 'walkin' ? '' : tab.name, kind: tab.kind, pay, till: settings.till, author: user.author, lines,
+      tabId, at, guest: tab.kind === 'walkin' ? '' : tab.name, kind: tab.kind, pay, till: tl.id, author: user.author, lines,
     }), at);
     // Every bill (paid or on a guest) also goes to the "POS Bar" tab, once that small script is set up.
     if (settings.journal_url) db.prepare('INSERT INTO outbox (type, payload, created_at) VALUES (?, ?, ?)').run('journal', JSON.stringify({
-      tabId, at, who: tab.name, kind: tab.kind, table: tab.table_no, pay, shiftId: shift?.id ?? null, author: user.name, lines,
+      tabId, at, who: tab.name, kind: tab.kind, table: tab.table_no, pay, shiftId: shift?.id ?? null, till: tl.name, author: user.name, lines,
     }), at);
-    if (!charge) queueReceipt(db, settings, tabId);
+    if (!charge) queueReceipt(db, settings, tabId, tl.id);
     logAction(db, user.id, charge ? 'charge' : 'pay', { tabId, total: tab.total, pay });
     return { id: tabId, status: charge ? 'charged' : 'paid', total: tab.total };
   });

@@ -4,8 +4,8 @@ import { PosError, now, tx, logAction, getSettings, setSettings } from './db.js'
 import { need, ROLES, createUser, setPin } from './auth.js';
 import { Ticket, sendTcp } from './print.js';
 import { events } from './orders.js';
+import { prepIds, getStation } from './stations.js';
 
-export const STATIONS = ['bar', 'kitchen'];
 export const COLORS = ['orange', 'teal', 'sky', 'coral', 'violet', 'gray'];
 const changed = type => events.emit('change', { type });
 const text = (v, max, what) => {
@@ -19,7 +19,8 @@ const price = v => {
   if (!Number.isFinite(n) || n < 0 || n > 100e6) throw new PosError('bad_input', 'Invalid price');
   return n;
 };
-const station = v => { if (v == null || v === '') return null; if (!STATIONS.includes(v)) throw new PosError('bad_input', 'Station must be bar or kitchen'); return v; };
+// A category or an item prints at a preparation station (Back office › Stations & printers).
+const station = (db, v) => { if (v == null || v === '') return null; if (!prepIds(db).includes(v)) throw new PosError('bad_input', 'Unknown preparation station'); return v; };
 
 // ---------- catalog ----------
 export function adminCatalog(db) {
@@ -33,7 +34,7 @@ export function adminCatalog(db) {
 export function saveCategory(db, user, id, b) {
   need(user, 'manage_catalog');
   const name = text(b.name, 40, 'Name');
-  const st = station(b.station) || 'bar';
+  const st = station(db, b.station) || prepIds(db)[0];
   const color = COLORS.includes(b.color) ? b.color : 'gray';
   const dup = db.prepare('SELECT id FROM categories WHERE name = ? COLLATE NOCASE AND id != ?').get(name, id || 0);
   if (dup) throw new PosError('exists', 'A category already has this name');
@@ -64,7 +65,7 @@ export function saveProduct(db, user, id, b) {
   const p = price(b.price);
   const cat = db.prepare('SELECT id FROM categories WHERE id = ?').get(Number(b.categoryId));
   if (!cat) throw new PosError('bad_input', 'Choose a category');
-  const st = station(b.station);
+  const st = station(db, b.station);
   const active = b.active === false ? 0 : 1;
   if (id) {
     if (!db.prepare('UPDATE products SET name = ?, price = ?, category_id = ?, station = ?, active = ? WHERE id = ?')
@@ -151,6 +152,7 @@ export function importLoyverse(db, user, csv, apply) {
   const cats = new Map(db.prepare('SELECT id, name FROM categories').all().map(c => [c.name.toLowerCase(), c.id]));
   const prods = new Map(db.prepare('SELECT id, name, price FROM products').all().map(p => [p.name.toLowerCase(), p]));
   const plan = { newCategories: [], add: [], update: [], same: 0 };
+  const preps = prepIds(db), barId = preps.includes('bar') ? 'bar' : preps[0], kitchenId = preps.includes('kitchen') ? 'kitchen' : barId;
   const seen = new Set();
   for (const it of items) {
     const key = it.name.toLowerCase();
@@ -158,7 +160,7 @@ export function importLoyverse(db, user, csv, apply) {
     const old = prods.get(key);
     // A category is created only for the new items that need it (an existing item keeps its category).
     if (!old && !cats.has(it.category.toLowerCase()) && !plan.newCategories.some(c => c.name.toLowerCase() === it.category.toLowerCase()))
-      plan.newCategories.push({ name: it.category, station: KITCHEN.test(it.category) || KITCHEN.test(it.name) ? 'kitchen' : 'bar' });
+      plan.newCategories.push({ name: it.category, station: KITCHEN.test(it.category) || KITCHEN.test(it.name) ? kitchenId : barId });
     if (!old) plan.add.push(it);
     else if (old.price !== it.price) plan.update.push({ ...it, id: old.id, oldPrice: old.price });
     else plan.same++;
@@ -208,33 +210,13 @@ export function saveUser(db, user, id, b) {
   });
 }
 
-// ---------- printers ----------
-const IP = /^(\d{1,3}\.){3}\d{1,3}$|^[a-z0-9][a-z0-9.-]{0,62}$/i;
-export function savePrinters(db, user, body) {
-  need(user, 'printers');
-  const out = {};
-  for (const st of ['bar', 'kitchen', 'receipt']) {
-    const p = body?.[st] || {};
-    const host = String(p.host || '').trim();
-    if (!host) continue;
-    if (!IP.test(host)) throw new PosError('bad_input', `Printer ${st}: write its address like 192.168.1.50`);
-    const port = Number(p.port || 9100), width = Number(p.width || 48);
-    if (!(port > 0 && port < 65536)) throw new PosError('bad_input', `Printer ${st}: wrong port`);
-    if (![32, 42, 48].includes(width)) throw new PosError('bad_input', `Printer ${st}: paper width 32 (58 mm) or 48 (80 mm)`);
-    out[st] = { host, port, width };
-  }
-  setSettings(db, { printers: out });
-  logAction(db, user.id, 'printers', out);
-  changed('settings');
-  return out;
-}
-
+// ---------- printers (stations: server/stations.js) ----------
 export async function testPrinter(db, user, st, send = sendTcp) {
   need(user, 'printers');
-  const p = getSettings(db).printers?.[st];
+  const p = getStation(db, st);
   if (!p?.host) throw new PosError('no_printer', 'Save the printer address first');
   const t = new Ticket(p.width || 48).align('center').bold(true).big(true).text('RABBIT POS').big(false).bold(false)
-    .text(`Test ${st} printer`).text(new Date().toLocaleString('en-GB')).text('If you can read this, it works.').cut();
+    .text(`Test: ${p.name}`).text(new Date().toLocaleString('en-GB')).text('If you can read this, it works.').cut();
   try { await send(p, t.bytes()); } catch (e) { throw new PosError('printer_off', `No answer from ${p.host}:${p.port} (${e.code || e.message})`); }
   return { ok: true };
 }

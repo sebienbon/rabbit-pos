@@ -2,6 +2,7 @@
 // Each order line goes to its station (bar / kitchen); the receipt goes to 'receipt'.
 import net from 'node:net';
 import { now } from './db.js';
+import { getStation, listStations, tillFor } from './stations.js';
 
 const ESC = 0x1b, GS = 0x1d;
 // Cheap printers only know plain ASCII: "Café crème" prints as "Cafe creme".
@@ -27,9 +28,7 @@ export class Ticket {
 
 const rp = n => 'Rp ' + Number(n).toLocaleString('en-US').replace(/,/g, '.');
 const hhmm = iso => new Date(iso).toTimeString().slice(0, 5);
-const STATION_TITLE = { bar: 'BAR', kitchen: 'KITCHEN' };
-
-function widthFor(settings, station) { return settings.printers?.[station]?.width || 48; }
+const widthFor = (db, station) => getStation(db, station)?.width || 48;
 
 function addJob(db, station, ticket, label) {
   db.prepare('INSERT INTO print_jobs (station, data, label, created_at) VALUES (?, ?, ?, ?)').run(station, ticket.bytes(), label, now());
@@ -38,28 +37,34 @@ function addJob(db, station, ticket, label) {
 export function queueOrderTickets(db, settings, orderId) {
   const o = db.prepare(`SELECT o.*, t.name, t.table_no FROM orders o JOIN tabs t ON t.id = o.tab_id WHERE o.id = ?`).get(orderId);
   const items = db.prepare('SELECT * FROM order_items WHERE order_id = ? AND voided = 0').all(orderId);
-  const stations = [...new Set(items.map(i => i.station))];
-  for (const st of stations) {
-    const t = new Ticket(widthFor(settings, st));
-    t.align('center').big(true).bold(true).text(STATION_TITLE[st] || st.toUpperCase()).big(false).bold(false)
+  // One ticket per station with only its lines; a "copy" station (pass) gets the whole order.
+  const copies = listStations(db).filter(s => s.kind === 'prep' && s.copy_all).map(s => s.id);
+  // A copy station gets only the copy (it already holds its own lines).
+  const stations = [...new Set(items.map(i => i.station))].filter(st => !copies.includes(st)).concat(copies.map(c => '*' + c));
+  for (const key of stations) {
+    const copy = key.startsWith('*'), st = copy ? key.slice(1) : key;
+    const t = new Ticket(widthFor(db, st));
+    t.align('center').big(true).bold(true).text((getStation(db, st)?.name || st).toUpperCase() + (copy ? ' - ALL' : '')).big(false).bold(false)
       .text(`Order #${orderId}  ${hhmm(o.created_at)}`).align('left').line()
       .bold(true).text(o.name).bold(false);
     if (o.table_no) t.text(`Table ${o.table_no}`);
     if (o.source !== 'pos') t.text(`Ordered by guest (${o.source})`);
     t.line();
-    for (const i of items.filter(i => i.station === st)) {
+    for (const i of items.filter(i => copy || i.station === st)) {
       t.big(true).text(`${i.qty} x ${i.name}`).big(false);
+      if (copy) t.text(`   [${getStation(db, i.station)?.name || i.station}]`);
       if (i.note) t.text(`   > ${i.note}`);
     }
     if (o.note) t.line().text(`Note: ${o.note}`);
     t.cut();
-    addJob(db, st, t, `Order #${orderId} ${st}`);
+    addJob(db, st, t, `Order #${orderId} ${st}${copy ? ' (copy)' : ''}`);
   }
 }
 
 // Bill before paying: same layout, "NOT PAID", no cash drawer.
-export function queueBill(db, settings, tab) {
-  const t = new Ticket(widthFor(settings, 'receipt'));
+export function queueBill(db, settings, tab, till) {
+  const tl = tillFor(db, till).id;
+  const t = new Ticket(widthFor(db, tl));
   t.align('center').big(true).bold(true).text(settings.venue_name).big(false).bold(false)
     .text(new Date().toLocaleString('en-GB')).text(`Bill #${tab.id}${tab.table_no ? ' - Table ' + tab.table_no : ''}`).align('left').line();
   if (tab.kind !== 'walkin') t.text(tab.name);
@@ -68,14 +73,15 @@ export function queueBill(db, settings, tab) {
   if (tab.service) t.pair(`Service ${settings.service_rate}%`, rp(tab.service));
   if (tab.tax) t.pair(`Tax ${settings.tax_rate}%`, rp(tab.tax));
   t.bold(true).big(true).pair('TOTAL', rp(tab.total)).big(false).bold(false).text('').align('center').bold(true).text('NOT PAID YET').bold(false).cut();
-  addJob(db, 'receipt', t, `Bill #${tab.id} (not paid)`);
+  addJob(db, tl, t, `Bill #${tab.id} (not paid)`);
 }
 
-export function queueReceipt(db, settings, tabId) {
+export function queueReceipt(db, settings, tabId, till) {
+  const tl = tillFor(db, till).id;
   const tab = db.prepare('SELECT * FROM tabs WHERE id = ?').get(tabId);
   const items = db.prepare(`SELECT i.name, i.qty, i.unit_price FROM order_items i JOIN orders o ON o.id = i.order_id
     WHERE o.tab_id = ? AND o.status = 'sent' AND i.voided = 0 ORDER BY i.id`).all(tabId);
-  const t = new Ticket(widthFor(settings, 'receipt'));
+  const t = new Ticket(widthFor(db, tl));
   t.align('center').big(true).bold(true).text(settings.venue_name).big(false).bold(false)
     .text(new Date(tab.closed_at).toLocaleString('en-GB')).text(`Bill #${tabId}`).align('left').line();
   if (tab.kind !== 'walkin') t.text(tab.name);
@@ -87,7 +93,7 @@ export function queueReceipt(db, settings, tabId) {
     .text('').align('center').text('Thank you!');
   if (tab.payment === 'Cash') t.drawer();
   t.cut();
-  addJob(db, 'receipt', t, `Bill #${tabId}`);
+  addJob(db, tl, t, `Bill #${tabId}`);
 }
 
 export function sendTcp({ host, port = 9100 }, data, timeoutMs = 5000) {
@@ -109,9 +115,9 @@ export async function processPrintJobs(db, settings, send = sendTcp) {
   try {
     const jobs = db.prepare("SELECT * FROM print_jobs WHERE status = 'waiting' ORDER BY id LIMIT 20").all();
     for (const j of jobs) {
-      const printer = settings.printers?.[j.station];
+      const printer = getStation(db, j.station);
       if (!printer?.host) {
-        db.prepare('UPDATE print_jobs SET error = ? WHERE id = ?').run(`No printer set for ${j.station}`, j.id);
+        db.prepare('UPDATE print_jobs SET error = ? WHERE id = ?').run(`No printer set for ${printer?.name || j.station}`, j.id);
         continue;
       }
       try {

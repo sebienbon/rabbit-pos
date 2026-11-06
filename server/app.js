@@ -12,6 +12,7 @@ import { printQueue, reprint } from './print.js';
 import { syncStatus, pushOutbox, pullGuests } from './sync.js';
 import * as T from './shift.js';
 import * as A from './admin.js';
+import * as ST from './stations.js';
 
 const PUBLIC = fileURLToPath(new URL('../public/', import.meta.url));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -29,17 +30,18 @@ const PHOTOS_DIR = fileURLToPath(new URL('../photos/', import.meta.url));
 export function createApp(db, { photosDir = PHOTOS_DIR, port = 8080 } = {}) {
   const PHOTOS = photosDir;
   const routes = [];
-  const route = (method, path, handler, opts = {}) => routes.push({ method, re: new RegExp('^' + path.replace(/:(\w+)/g, '(?<$1>\\d+)') + '$'), handler, ...opts });
+  const route = (method, path, handler, opts = {}) => routes.push({ method, re: new RegExp('^' + path.replace(/:(\w+)/g, (m, n) => n === 'sid' ? '(?<sid>[a-z0-9-]{1,40})' : `(?<${n}>\\d+)`) + '$'), handler, ...opts });
 
   // ----- staff -----
   route('POST', '/api/login', ({ body, req }) => login(db, body.pin, String(body.device || req.socket.remoteAddress).slice(0, 60)));
   route('POST', '/api/logout', ({ token }) => (logout(db, token), { ok: true }));
   route('GET', '/api/me', ({ user }) => (need(user, 'view_tabs'), { user }));
-  route('GET', '/api/state', ({ user, s }) => {
+  route('GET', '/api/state', ({ user, s, query }) => {
     need(user, 'view_tabs');
     return { user, settings: staffSettings(s), catalog: O.catalog(db), tabs: O.listTabs(db, s),
       pending: O.pendingOrders(db), print: can(user, 'printers') ? printQueue(db) : [], sync: syncStatus(db, s),
-      shift: s.till === 'bar' ? T.shiftSummary(db, T.openShift(db)) : null };
+      stations: ST.publicStations(db), till: ST.tillFor(db, query.get('till')).id,
+      shift: s.till === 'bar' ? T.shiftSummary(db, T.openShift(db, query.get('till'))) : null };
   });
   // Send waiting sales and refresh the guest list now (button on the till, or after the internet comes back).
   route('POST', '/api/sync', async ({ user, s }) => {
@@ -55,9 +57,9 @@ export function createApp(db, { photosDir = PHOTOS_DIR, port = 8080 } = {}) {
   route('POST', '/api/orders/:id/reject', ({ user, s, p }) => O.decideOrder(db, s, +p.id, false, user));
   route('POST', '/api/items/:id/void', ({ user, p }) => (O.voidItem(db, +p.id, user), { ok: true }));
   route('GET', '/api/tabs/:id', ({ user, s, p }) => (need(user, 'view_tabs'), O.getTab(db, s, +p.id)));
-  route('POST', '/api/tabs/:id/pay', ({ user, s, p, body }) => O.closeTab(db, s, +p.id, { payment: body.payment }, user));
-  route('POST', '/api/tabs/:id/charge', ({ user, s, p }) => O.closeTab(db, s, +p.id, { charge: true }, user));
-  route('POST', '/api/tabs/:id/print-bill', ({ user, s, p }) => O.printBill(db, s, +p.id, user));
+  route('POST', '/api/tabs/:id/pay', ({ user, s, p, body }) => O.closeTab(db, s, +p.id, { payment: body.payment, till: body.till }, user));
+  route('POST', '/api/tabs/:id/charge', ({ user, s, p, body }) => O.closeTab(db, s, +p.id, { charge: true, till: body.till }, user));
+  route('POST', '/api/tabs/:id/print-bill', ({ user, s, p, body }) => O.printBill(db, s, +p.id, user, body.till));
   // Reception: bills put on guests since the start of yesterday (local time).
   route('GET', '/api/tabs-charged', ({ user, s }) => {
     need(user, 'view_tabs');
@@ -110,7 +112,9 @@ export function createApp(db, { photosDir = PHOTOS_DIR, port = 8080 } = {}) {
   route('GET', '/api/admin/users', ({ user }) => A.listUsers(db, user));
   route('POST', '/api/admin/users', ({ user, body }) => A.saveUser(db, user, 0, body));
   route('PUT', '/api/admin/users/:id', ({ user, p, body }) => A.saveUser(db, user, +p.id, body));
-  route('PUT', '/api/admin/printers', ({ user, body }) => A.savePrinters(db, user, body));
+  route('GET', '/api/admin/stations', ({ user }) => (need(user, 'printers'), ST.listStations(db, { all: true })));
+  route('POST', '/api/admin/stations', ({ user, body }) => (ST.saveStation(db, user, null, body), O.events.emit('change', { type: 'stations' }), ST.listStations(db, { all: true })));
+  route('PUT', '/api/admin/stations/:sid', ({ user, p, body }) => (ST.saveStation(db, user, p.sid, body), O.events.emit('change', { type: 'stations' }), ST.listStations(db, { all: true })));
   route('POST', '/api/admin/printers/test', ({ user, body }) => A.testPrinter(db, user, String(body.station)));
   // Owner options. Passwords and keys never leave the PC: the screen only learns whether they are set.
   const SECRET_KEYS = ['sheet_password', 'sheet_token', 'journal_secret', 'client_key'];

@@ -5,6 +5,8 @@ import { openDb, getSettings, setSettings } from '../server/db.js';
 import { createUser, login, userFromToken, can } from '../server/auth.js';
 import * as O from '../server/orders.js';
 import * as T from '../server/shift.js';
+import * as stationsMod from '../server/stations.js';
+import * as A from '../server/admin.js';
 import { processPrintJobs, Ticket } from '../server/print.js';
 import { seedDemo } from '../server/seed.js';
 import { createApp } from '../server/app.js';
@@ -88,13 +90,13 @@ test('charge to the guest sends Unpaid lines for Guest bills; walk-in must pay',
   const o = O.createOrder(db, s, { guestId: guest('Jonas Keller'), items: [{ productId: prod('Burger'), qty: 2 }] }, c);
   O.closeTab(db, s, o.tabId, { charge: true }, c);
   const out = JSON.parse(db.prepare('SELECT payload FROM outbox').get().payload);
-  assert.equal(out.pay, 'Unpaid'); assert.equal(out.guest, 'Jonas Keller'); assert.equal(out.till, 'bar');
+  assert.equal(out.pay, 'Unpaid'); assert.equal(out.guest, 'Jonas Keller'); assert.equal(out.till, 'receipt');
   assert.deepEqual(out.lines.map(l => [l.product, l.total]), [['Burger', 170000], ['Service 5%', 8500]]);
   assert.throws(() => O.closeTab(db, s, o.tabId, { payment: 'Cash' }, c), /already closed/);
 
   const w = O.createOrder(db, s, { walkin: true, items: [{ productId: prod('Espresso'), qty: 1 }] }, c);
   assert.throws(() => O.closeTab(db, s, w.tabId, { charge: true }, c), /must be paid now/);
-  assert.throws(() => O.closeTab(db, s, w.tabId, { payment: 'Cash' }, c), /Open the bar first/);
+  assert.throws(() => O.closeTab(db, s, w.tabId, { payment: 'Cash' }, c), /Open Bar till first/);
   T.startShift(db, c, { counted: 0 });
   assert.throws(() => O.closeTab(db, s, w.tabId, { payment: 'Gold' }, c), /Unknown payment/);
   assert.throws(() => O.closeTab(db, s, w.tabId, { payment: 'Cash' }, as('2222')), /cannot do this/);
@@ -127,12 +129,12 @@ test('tickets reach a network printer, and wait while it is off', async () => {
   const port = printer.address().port;
   O.createOrder(db, getSettings(db), { guestId: guest('Martin Dupont'), items: [{ productId: prod('Nasi goreng'), qty: 1, note: 'Pédas' }] }, as('2222'));
 
-  setSettings(db, { printers: { kitchen: { host: '127.0.0.1', port: 1 } } }); // nothing listens on port 1
+  db.prepare("UPDATE stations SET host = '127.0.0.1', port = 1 WHERE id = 'kitchen'").run(); // nothing listens on port 1
   await processPrintJobs(db, getSettings(db));
   const j = db.prepare('SELECT status, tries, error FROM print_jobs').get();
   assert.equal(j.status, 'waiting'); assert.equal(j.tries, 1); assert.ok(j.error);
 
-  setSettings(db, { printers: { kitchen: { host: '127.0.0.1', port } } });
+  db.prepare("UPDATE stations SET host = '127.0.0.1', port = ? WHERE id = 'kitchen'").run(port);
   assert.equal(await processPrintJobs(db, getSettings(db)), 1);
   await new Promise(r => setTimeout(r, 50));
   const text = got[0].toString('latin1');
@@ -215,7 +217,7 @@ test('bar service: opening count, cash expected, difference, BAR Cash-out sent, 
   assert.equal(JSON.parse(out.payload).amount, 170000);
   assert.match(JSON.parse(out.payload).comment, /counted 270000, expected 280000, difference -10000 · short 10k/);
   assert.equal(T.openShift(db), null);
-  assert.throws(() => sell({ walkin: true }, [['Espresso', 1]], { payment: 'Cash' }), /Open the bar first/);
+  assert.throws(() => sell({ walkin: true }, [['Espresso', 1]], { payment: 'Cash' }), /Open Bar till first/);
   sell({ guestId: guest('Hiro Tanaka') }, [['Espresso', 1]], { charge: true }); // a guest bill needs no open bar
 
   const o2 = T.startShift(db, c, { counted: 95000 });
@@ -280,4 +282,48 @@ test('waiter phone and reception: waiter puts a guest on the room bill but takes
   const recent = O.chargedSince(db, s, new Date(Date.now() - 3600000).toISOString());
   assert.deepEqual(recent.map(t => t.id), [o.tabId]);
   assert.throws(() => O.printBill(db, s, o.tabId, rec), /already closed/);
+});
+
+test('stations: more preparation points and tills; mixed orders split; a pass gets a copy; each till its drawer and receipts', () => {
+  const { db, as, prod, guest } = fresh();
+  const s = getSettings(db), owner = as('1234'), c = as('4444');
+  const ST = stationsMod;
+  assert.deepEqual(ST.listStations(db).map(x => [x.id, x.kind]), [['bar', 'prep'], ['kitchen', 'prep'], ['receipt', 'till']]);
+  assert.throws(() => ST.saveStation(db, as('2222'), null, { name: 'X', kind: 'prep' }), /cannot do this/);
+  const { id: pizza } = ST.saveStation(db, owner, null, { name: 'Pizza oven', kind: 'prep', host: '192.168.1.60', sheetObject: 'Restaurant' });
+  const { id: pass } = ST.saveStation(db, owner, null, { name: 'Pass', kind: 'prep', copyAll: true });
+  const { id: beach } = ST.saveStation(db, owner, null, { name: 'Beach till', kind: 'till', host: '192.168.1.70' });
+  assert.deepEqual([pizza, pass, beach], ['pizza-oven', 'pass', 'beach-till']);
+  assert.throws(() => ST.saveStation(db, owner, null, { name: 'Bad', kind: 'prep', host: 'no way!' }), /192.168/);
+  // Pizza category -> pizza oven
+  const cat = A.saveCategory(db, owner, 0, { name: 'Pizza', station: pizza }).id;
+  const mar = A.saveProduct(db, owner, 0, { name: 'Margherita', price: 90000, categoryId: cat }).id;
+  assert.throws(() => A.saveCategory(db, owner, 0, { name: 'X', station: 'nowhere' }), /Unknown preparation station/);
+  db.exec('DELETE FROM print_jobs');
+  const o = O.createOrder(db, s, { walkin: true, items: [{ productId: prod('Bintang'), qty: 1 }, { productId: mar, qty: 2 }, { productId: prod('Burger'), qty: 1 }] }, c);
+  const jobs = db.prepare('SELECT station, label, data FROM print_jobs ORDER BY id').all();
+  assert.deepEqual(jobs.map(j => j.station), ['bar', pizza, 'kitchen', pass]);
+  const txt = st => Buffer.from(jobs.find(j => j.station === st).data).toString('latin1');
+  assert.match(txt(pizza), /PIZZA OVEN/); assert.match(txt(pizza), /2 x Margherita/); assert.doesNotMatch(txt(pizza), /Bintang/);
+  assert.match(txt(pass), /PASS - ALL/); assert.match(txt(pass), /1 x Bintang/); assert.match(txt(pass), /2 x Margherita/);
+  // Two tills: each its own service; the receipt prints at the till that took the money.
+  T.startShift(db, c, { counted: 100000, till: beach });
+  assert.throws(() => O.closeTab(db, s, o.tabId, { payment: 'Cash' }, c), /Open Bar till first/);
+  O.closeTab(db, s, o.tabId, { payment: 'Cash', till: beach }, c);
+  const rec = db.prepare("SELECT station FROM print_jobs WHERE label = ?").get(`Bill #${o.tabId}`);
+  assert.equal(rec.station, beach);
+  assert.equal(T.shiftSummary(db, T.openShift(db, beach)).cashSales, 40000 + 180000 + 85000);
+  assert.equal(T.openShift(db, 'receipt'), null);
+  assert.equal(db.prepare('SELECT till FROM tabs WHERE id = ?').get(o.tabId).till, beach);
+  // A guest bill keeps the object of the station that made it (Entries: Pizza oven -> Restaurant).
+  const g = O.createOrder(db, s, { guestId: guest('Hiro Tanaka'), items: [{ productId: mar, qty: 1 }, { productId: prod('Mojito'), qty: 1 }] }, c);
+  O.closeTab(db, s, g.tabId, { charge: true }, c);
+  const lines = JSON.parse(db.prepare("SELECT payload FROM outbox WHERE type = 'sale' ORDER BY id DESC").get().payload).lines;
+  assert.deepEqual(lines.map(l => [l.product, l.object, l.stationName]), [['Margherita', 'Restaurant', 'Pizza oven'], ['Mojito', 'Bar', 'Bar']]);
+  // A station in use cannot be switched off; the last till stays.
+  assert.throws(() => ST.saveStation(db, owner, pizza, { name: 'Pizza oven', active: false }), /used by 1/);
+  assert.throws(() => ST.saveStation(db, owner, beach, { name: 'Beach till', active: false }), /Close the service/);
+  T.endShift(db, s, c, { counted: 405000, cashout: 0, till: beach });
+  ST.saveStation(db, owner, beach, { name: 'Beach till', active: false });
+  assert.throws(() => ST.saveStation(db, owner, 'receipt', { name: 'Bar till', active: false }), /at least one till/);
 });

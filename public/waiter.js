@@ -199,7 +199,7 @@ document.addEventListener('click', run(async e => {
   if (d.dec) return change(Number(d.dec), -1);
   if (d.send) return send(b);
   if (d.accept || d.reject) { await api(`/api/orders/${d.accept || d.reject}/${d.accept ? 'accept' : 'reject'}`, { method: 'POST' }); toast(d.accept ? 'Accepted: sent to the bar and kitchen' : 'Refused'); return load(); }
-  if (d.print) { await api(`/api/tabs/${d.print}/print-bill`, { method: 'POST' }); return toast('Bill sent to the printer'); }
+  if (d.print) { await api(`/api/tabs/${d.print}/print-bill`, { method: 'POST', body: { till: store.get('till') || undefined } }); return toast('Bill sent to the printer'); }
   if (d.charge) { await api(`/api/tabs/${d.charge}/charge`, { method: 'POST' }); toast('Put on the room bill'); view = { name: 'home' }; return load(); }
 }));
 

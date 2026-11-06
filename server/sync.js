@@ -85,7 +85,8 @@ export function saleOp(row, s) {
       lines: d.lines.map((l, i) => ({
         ts: tsOf(at + v * 211 + i), qty: l.qty, unit: l.unit, unitCost: 0, guest: d.guest,
         category: s.sheet_category || 'Service',
-        object: l.station === 'kitchen' ? (s.sheet_object_kitchen || 'Restaurant') : (s.sheet_object_bar || 'Bar'),
+        // Object of the station that made it (Back office › Stations); older bills: kitchen = Restaurant, else Bar.
+        object: l.object || (l.station === 'kitchen' ? (s.sheet_object_kitchen || 'Restaurant') : (s.sheet_object_bar || 'Bar')),
         comment: `${l.product} · Bar POS bill #${d.tabId}`.slice(0, 300),
       })),
     },
