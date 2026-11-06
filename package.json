@@ -1,0 +1,13 @@
+{
+  "name": "rabbit-pos",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bar & restaurant POS for Rabbit Tree, runs on the reception PC, syncs to the Reception Google Sheet",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node --no-warnings server/index.js",
+    "demo": "node --no-warnings server/index.js --demo",
+    "test": "node --no-warnings --test test/*.test.js"
+  }
+}

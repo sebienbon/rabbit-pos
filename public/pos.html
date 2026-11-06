@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Rabbit POS</title>
+<link rel="stylesheet" href="pos.css">
+</head>
+<body>
+<section id="pin" class="hidden" aria-label="Log in">
+  <div class="side">
+    <div class="logo"><img src="img/logo-mark-white.png" alt="Rabbit Tree"></div>
+    <div id="clock" style="color: var(--ink-soft); font-weight: 700"></div>
+    <h1 id="venue">Rabbit Tree</h1>
+    <div style="font-weight: 700; color: var(--ink-soft)">Enter your PIN</div>
+    <div class="dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <div class="err" id="pinErr" role="alert"></div>
+  </div>
+  <div class="keys" id="keys"></div>
+</section>
+
+<section id="main" class="hidden">
+  <div class="left">
+    <header class="top">
+      <img src="img/logo-name-white.png" alt="Rabbit Tree">
+      <div class="title">Sell</div>
+      <div class="grow"></div>
+      <button class="chip" id="tabsBtn">Open bills <span class="badge" id="tabsCount">0</span></button>
+      <span class="chip" id="net"><span class="dot"></span><span>Online</span></span>
+      <button class="chip me" id="meBtn" title="Log out"></button>
+    </header>
+    <div id="pendingBox"></div>
+    <nav class="cats" id="cats" aria-label="Categories"></nav>
+    <input class="search" id="search" placeholder="Search an item" aria-label="Search an item">
+    <div class="grid" id="grid"></div>
+  </div>
+  <aside class="ticket" aria-label="Current bill">
+    <div class="thead">
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <h2 style="font-size: 22px" id="tHead">New bill</h2>
+        <button class="chip" style="background: var(--accent-bg); color: var(--accent)" id="newBtn">+ New</button>
+      </div>
+      <button class="who" id="whoBtn"><span id="whoTxt">Who is it for?</span><b>Choose</b></button>
+    </div>
+    <div class="lines" id="lines"></div>
+    <div class="sum">
+      <div class="row"><span>Subtotal</span><span id="sSub"></span></div>
+      <div class="row" id="rService"><span id="lService">Service</span><span id="sService"></span></div>
+      <div class="row" id="rTax"><span id="lTax">Tax</span><span id="sTax"></span></div>
+      <div class="total"><span>Total</span><span id="sTotal"></span></div>
+      <div class="btns">
+        <button class="btn line2" id="sendBtn">Send</button>
+        <button class="btn go" id="payBtn">Pay</button>
+      </div>
+    </div>
+  </aside>
+</section>
+
+<div id="veil" class="veil hidden"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<script type="module" src="pos.js"></script>
+</body>
+</html>
