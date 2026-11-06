@@ -30,3 +30,14 @@ setInterval(() => processPrintJobs(db, getSettings(db)).catch(e => console.error
 // Google Sheet: sales out every 30 s, guest list in every 10 min (only when the bridge is set up).
 startSync(db, () => getSettings(db));
 if (!sheetReady(getSettings(db))) console.log('Google Sheet link not set up yet: see README.md (npm run config)');
+
+// Launched by start.command / start.bat: when the code is updated, stop (exit 75) so the launcher starts the new version.
+if (process.env.POS_RESTART_ON_UPDATE) {
+  const { watch } = await import('node:fs');
+  let t;
+  watch(new URL('.', import.meta.url), (ev, file) => {
+    if (!/\.js$/.test(file || '')) return;
+    clearTimeout(t);
+    t = setTimeout(() => { console.log(`Code updated (${file}): restarting`); process.exit(75); }, 1500);
+  });
+}
