@@ -51,17 +51,29 @@ les réglages sont pour le manager et le propriétaire.
 ## E. Pertes et repas du staff
 - Une touche : article ou ingrédient, quantité, raison (cassé, périmé, repas staff, offert).
 
-## F. Achats
-- **On commande un ingrédient, pas une marque.** La commande dit « huile de friture 10 L ». À la réception, on note
-  le produit réellement arrivé (Bimoli 5 L ou Kunci Mas 5 L…), la quantité et le prix payé. Si Aria change de marque,
-  rien ne casse : le produit est relié au même ingrédient (table produit → ingrédient + contenu, faite par Sébastien
-  sur la page « Produits achetés », 07/11), le stock monte en litres et le coût suit le vrai prix.
-  Un produit jamais vu à la réception : on le rattache à l'ingrédient en un geste (contenu demandé une seule fois).
-- Rapprochement commande / réception / prix : écart de quantité, de marque et de prix par ligne, signalé au manager.
-- Réception d'une livraison : fournisseur, articles, quantités, prix → stock et coûts à jour.
+## F. Achats : commande → réception → facture du mois (circuit validé le 07/11/2026)
+Idée centrale : **tout le monde parle d'ingrédients ; la marque n'est qu'un détail noté au passage.**
+En Indonésie l'approvisionnement change souvent (autre marque, autre taille, les deux) : rien ne doit casser.
+
+1. **Marques préférées.** Chaque ingrédient a ses produits (marques / tailles) rangés par préférence
+   (`Ingredients.preferred_products`, `Products.preference`) : moins cher, meilleure qualité…
+2. **Commande (staff, simple).** « Huile de friture, 10 L ». Pas de marque à choisir. La liste envoyée à Aria
+   ajoute toute seule « de préférence Bimoli 5 L, sinon Kunci Mas 5 L ». Le staff peut ajouter une ligne libre ;
+   elle est rattachée à un ingrédient plus tard (manager, ou une IA qui l'écrit dans le Sheet).
+3. **Réception (staff, sans prix).** On reprend la commande ligne par ligne, trois boutons :
+   **reçu** · **différent** (choisir la marque / la taille reçue, ou « nouvelle » : nom + contenu, une fois) · **manquant**.
+   Bouton **ajouter** pour ce qui arrive sans avoir été commandé. Un oubli se corrige directement (la réception reste
+   modifiable jusqu'au rapprochement). Le stock monte en unités de base (g, ml, pièce), quelle que soit la marque.
+4. **Facture d'Aria (fin de mois).** C'est elle qui donne les prix. Ses lignes arrivent dans l'onglet `BillLines`
+   (saisie, import de l'onglet Arya, ou une autre IA qui lit la facture, comme l'onglet Feed le fait déjà).
+   Rapprochement automatique ligne de facture ↔ ligne reçue par date proche + produit + montant cohérent ;
+   on ne montre au owner que les écarts (`match = to_check`). Chaque prix validé va dans `Prices` (historique des prix).
+5. **Coûts.** Prix de revient par ingrédient = prix des produits réellement reçus, ramené au g / ml / pièce.
+
+Écrans staff : 3 boutons par ligne, pas de prix, pas de marque à taper. Le reste (préférences, rapprochement) est owner/manager.
 - Loyverse : l'export CSV des articles est déjà importable (back-office) ; l'export « Ventes par article » (par jour)
   servira à remplir l'historique de ventes pour l'estimation (H) en attendant que la caisse ait le sien.
-- Commande suggérée par fournisseur = besoin prévu jusqu'à la prochaine livraison + sécurité − stock,
+- Plus tard : commande suggérée = besoin prévu jusqu'à la prochaine livraison + sécurité − stock,
   arrondi au conditionnement. Le manager valide, ajuste, l'envoie (WhatsApp / impression).
 
 ## G. Saisonnalité
@@ -77,6 +89,9 @@ devient la référence partagée pour les achats et le stock, entre les modules 
   dernier prix), `Units`, `Locations`, `PurchaseModes`, puis `Recipes`, `Receipts` (réceptions), `Counts` (inventaires).
 - Les listes réglables (catégories, lieux, modes, unités) sont des onglets : le owner les modifie là ou dans le
   back-office, c'est la même donnée.
+- Onglets créés par `bridge/stock.gs` (fonction `setupStock`, même projet Apps Script « POS » que journal.gs,
+  même adresse, même SECRET) : colonnes fixes en anglais, `id` en colonne A, listes d'ids « a, b, c ».
+  Actions : `stock_read` (onglets → lignes), `stock_upsert` (ajout / mise à jour par id, n'écrase que les colonnes envoyées).
 - Un script Apps Script dans ce Sheet sert d'API (comme `bridge/journal.gs` pour « POS Bar ») : la caisse lit les
   ingrédients / produits / recettes et y écrit réceptions, comptages, consommations, toujours sous la bonne forme.
   D'autres modules peuvent appeler le même script.

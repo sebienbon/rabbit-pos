@@ -72,5 +72,5 @@ export function loadGas(code, sheets, filename = 'script.gs') {
   });
   vm.runInContext(code, ctx, { filename });
   const doPost = body => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(body) } }).text);
-  return { tabs, props, doPost };
+  return { tabs, props, doPost, ctx };
 }

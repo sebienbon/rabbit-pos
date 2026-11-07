@@ -31,6 +31,10 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
   POS side: outbox type `journal` → `journal_url` / `journal_secret`, independent of the Rabbit-System link.
   Deployed 06/11 in the owner's Apps Script project "POS" (Execute as Me, access Anyone), tested live: tab created.
   Redeploy with Manage deployments › Edit › New version (keeps the address).
+- `bridge/stock.gs` second file of the same Apps Script project: stock & purchasing tabs in the owner's Sheet
+  "Accounting Processor 2026" (Categories, Locations, PurchaseModes, Units, Ingredients, Products, Orders, OrderLines,
+  Receipts, ReceiptLines, BillLines, Prices — English headers, id in col A). `setupStock()` run once by hand; doPost with
+  `action` → `stock_read` / `stock_upsert`. Owner's existing tabs (Historic, Arya, Feed…) never touched. Test: test/stock.test.js.
 - `shift.js` bar service: open (cash count, gap vs what was left) / close (counted, handed over = BAR Cash-out, difference),
   day report (cards of the bar). Bar till: taking money needs an open service; a guest bill does not.
 - Photos: kept **in git** in `photos/` (owner's choice, 06/11): `POST /api/products/:id/photo` (raw JPEG/PNG/WebP ≤ 3 MB)

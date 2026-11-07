@@ -7,6 +7,7 @@
  * Setup (once): script.google.com › New project › paste this file › put the two values below ›
  * Deploy › New deployment › Web app (Execute as: Me, Who has access: Anyone) › copy the /exec address ›
  * on the POS PC: npm run config -- journal_url=<that address> journal_secret=<the SECRET below>
+ * The same project also holds stock.gs (stock & purchasing tabs of "Accounting Processor 2026"): paste both files.
  */
 var SHEET_ID = 'PUT_THE_SHEET_ID_HERE';   // docs.google.com/spreadsheets/d/<THIS PART>/edit
 var SECRET = 'PUT_A_LONG_RANDOM_WORD_HERE'; // the same word goes in the POS (journal_secret); keep it out of GitHub
@@ -21,7 +22,8 @@ function doPost(e) {
   try {
     var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (!SECRET || SECRET.indexOf('PUT_') === 0 || req.secret !== SECRET) throw new Error('bad secret');
-    out = addBill_(SpreadsheetApp.openById(SHEET_ID), String(req.id || ''), req.bill);
+    if (req.action) out = stockAction_(req); // stock & purchasing (stock.gs, same project)
+    else out = addBill_(SpreadsheetApp.openById(SHEET_ID), String(req.id || ''), req.bill);
   } catch (err) {
     out = { ok: false, error: String(err && err.message || err) };
   }
