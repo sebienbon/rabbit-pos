@@ -52,7 +52,15 @@ les réglages sont pour le manager et le propriétaire.
 - Une touche : article ou ingrédient, quantité, raison (cassé, périmé, repas staff, offert).
 
 ## F. Achats
+- **On commande un ingrédient, pas une marque.** La commande dit « huile de friture 10 L ». À la réception, on note
+  le produit réellement arrivé (Bimoli 5 L ou Kunci Mas 5 L…), la quantité et le prix payé. Si Aria change de marque,
+  rien ne casse : le produit est relié au même ingrédient (table produit → ingrédient + contenu, faite par Sébastien
+  sur la page « Produits achetés », 07/11), le stock monte en litres et le coût suit le vrai prix.
+  Un produit jamais vu à la réception : on le rattache à l'ingrédient en un geste (contenu demandé une seule fois).
+- Rapprochement commande / réception / prix : écart de quantité, de marque et de prix par ligne, signalé au manager.
 - Réception d'une livraison : fournisseur, articles, quantités, prix → stock et coûts à jour.
+- Loyverse : l'export CSV des articles est déjà importable (back-office) ; l'export « Ventes par article » (par jour)
+  servira à remplir l'historique de ventes pour l'estimation (H) en attendant que la caisse ait le sien.
 - Commande suggérée par fournisseur = besoin prévu jusqu'à la prochaine livraison + sécurité − stock,
   arrondi au conditionnement. Le manager valide, ajuste, l'envoie (WhatsApp / impression).
 
