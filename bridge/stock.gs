@@ -164,7 +164,7 @@ function setupStock() {
   var ss = SpreadsheetApp.openById(STOCK_SHEET_ID), made = [];
   Object.keys(STOCK_TABS).forEach(function (name) {
     var sh = ss.getSheetByName(name), head = STOCK_TABS[name];
-    if (!sh) { sh = ss.insertSheet(name); made.push(name); }
+    if (!sh) { sh = ss.insertSheet(name, ss.getNumSheets()); made.push(name); } // at the end, after the owner's tabs
     if (sh.getLastRow() === 0) {
       sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
       sh.setFrozenRows(1);

@@ -38,7 +38,7 @@ Une entrée par sujet : où ça se corrige, pourquoi, et ce qu'il faut faire. Co
 ### 6. [ ] Script « POS Bar » : nom des nouveaux postes + fichier stock.gs
 - **Où :** projet Apps Script « POS » (script `POS-Bar-script.gs`).
 - **Problème :** la colonne « Bar / Kitchen » de l'onglet POS Bar n'affiche que Bar ou Kitchen. Avec les nouveaux postes (Pizza, Bar plage…), il faut recoller le script mis à jour (`bridge/journal.gs`, en gardant l'ID et le secret) puis Deploy › Manage deployments › Edit › New version.
-- **Ajout du 07/11 :** dans le même projet, ajouter le fichier `bridge/stock.gs` (onglets stock du Sheet « Accounting Processor 2026 »), lancer une fois `setupStock`, puis New version.
+- **Fait le 07/11 (par Claude) :** fichier `stock` ajouté au projet, `setupStock` lancé (12 onglets créés dans « Accounting Processor 2026 », 105 ingrédients), journal mis à jour, déploiement version 3 (même adresse). Reste à faire ici : seulement le nom des postes. Pour mémoire : ajouter le fichier `bridge/stock.gs` (onglets stock du Sheet « Accounting Processor 2026 »), lancer une fois `setupStock`, puis New version.
 - **Noté le :** 06/11/2026
 
 ## Réglé

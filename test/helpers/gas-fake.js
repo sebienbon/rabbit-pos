@@ -55,7 +55,7 @@ export function loadGas(code, sheets, filename = 'script.gs') {
   const tabs = {};
   for (const [n, rows] of Object.entries(sheets)) tabs[n] = fakeSheet(n, rows);
   const ss = { getName: () => 'Reception - RABBIT TREE', getSpreadsheetTimeZone: () => 'Asia/Makassar',
-    getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = fakeSheet(n)) };
+    getSheetByName: n => tabs[n] || null, insertSheet: n => (tabs[n] = fakeSheet(n)), getNumSheets: () => Object.keys(tabs).length };
   const props = {};
   const P = { getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = String(v); }, deleteProperty: k => { delete props[k]; },
     getProperties: () => ({ ...props }) };
