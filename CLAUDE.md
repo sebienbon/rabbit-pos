@@ -57,8 +57,10 @@ Separate from **Rabbit-System** (github.com/sebienbon/Rabbit-System = reception 
   pass gets every order; `sheet_object` = Entries object of guest-bill lines made there) and kind `till` (Bar till,
   Beach till…: receipts, drawer, its own service — shifts.till, tabs.till). Device's till in localStorage `till`, sent
   as `till` (state query, pay, charge, print-bill, shift). Ids are text (route param `:sid`). Old `settings.printers` migrated.
-- `docs/PLAN-STOCK.md` (French): plan A–G (stations ✅, recipes/costing, theoretical usage, staff counts, waste,
-  purchasing with suggested orders, seasonality).
+- `docs/PLAN-STOCK.md` (French): plan A–H (stations ✅, recipes/costing, theoretical usage, staff counts, waste,
+  purchasing with suggested orders, seasonality, H = consumption estimate by regression + cost price). Everything
+  configurable by owner/manager: categories, storage places, purchase modes (multi: Aria / If urgent / Online / Other),
+  units. `docs/achats-base.json` = 98 consumables reviewed by the owner 07/11 → seed for the ingredients table.
 - `public/pos.*` till screen (PIN + sell + bills + guest-order validation + "Sheet" chip when sales wait)
 - `test/core.test.js`, `test/sync.test.js` — `npm test` must stay green. sync tests run Rabbit-System's REAL
   30.UI_api.gs in node:vm (`test/helpers/gas-fake.js`); set RABBIT_SYSTEM_GS=path/to/30.UI_api.gs, else 3 are skipped.

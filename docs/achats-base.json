@@ -1,0 +1,1483 @@
+{
+ "source": "liste staff 2 ans, revue par Sébastien le 07/11/2026",
+ "purchase": {
+  "A": "Avec Aria",
+  "U": "Si urgent",
+  "N": "Internet",
+  "X": "Autre"
+ },
+ "locations": {
+  "gudang-atas": "Gudang Atas",
+  "gudang-bawah": "Gudang Bawah",
+  "kitchen": "Kitchen",
+  "bar": "Bar",
+  "laundry": "Laundry"
+ },
+ "items": [
+  {
+   "id": "aluminium-foil",
+   "item": "aluminium foil",
+   "en": "aluminium foil",
+   "fr": "papier alu",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 1,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "ayam-fillet",
+   "item": "ayam fillet",
+   "en": "chicken fillet",
+   "fr": "filet de poulet",
+   "cat": "protine",
+   "type": "frais/marche",
+   "nb": 6,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "balsamic-vinegar",
+   "item": "balsamic vinegar",
+   "en": "balsamic vinegar",
+   "fr": "vinaigre balsamique",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 6,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "bawang-bombay",
+   "item": "bawang bombay",
+   "en": "onions",
+   "fr": "gros oignon",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 19,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "bawang-merah",
+   "item": "bawang merah",
+   "en": "shallots",
+   "fr": "échalote",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 32,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "bawang-putih",
+   "item": "bawang putih",
+   "en": "garlic",
+   "fr": "ail",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 32,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "bayclin",
+   "item": "bayclin",
+   "en": "bleach (Bayclin)",
+   "fr": "javel Bayclin",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 7,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "gudang-atas",
+    "gudang-bawah"
+   ]
+  },
+  {
+   "id": "baygon",
+   "item": "baygon refill",
+   "en": "Baygon insecticide refills",
+   "fr": "recharges d'insecticide Baygon",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 9,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "gudang-atas",
+    "gudang-bawah"
+   ]
+  },
+  {
+   "id": "beng-beng",
+   "item": "beng beng",
+   "en": "Beng-Beng chocolate bar",
+   "fr": "barre chocolat Beng-Beng",
+   "cat": "sucrerie",
+   "type": "achetable-en-ligne",
+   "nb": 10,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "beras",
+   "item": "beras",
+   "en": "rice",
+   "fr": "riz (marques Selera/Royal/Pandawa)",
+   "cat": "feculent",
+   "type": "achetable-en-ligne",
+   "nb": 29,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "buah-naga",
+   "item": "buah naga",
+   "en": "dragon fruit",
+   "fr": "fruit du dragon",
+   "cat": "fruit",
+   "type": "frais/marche",
+   "nb": 64,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar"
+   ]
+  },
+  {
+   "id": "cola",
+   "item": "cola",
+   "en": "Coca-Cola",
+   "fr": "Coca-Cola",
+   "cat": "boisson",
+   "type": "achetable-en-ligne",
+   "nb": 6,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar"
+   ]
+  },
+  {
+   "id": "daging-cincang",
+   "item": "daging cincang",
+   "en": "minced beef",
+   "fr": "boeuf haché",
+   "cat": "protine",
+   "type": "frais/marche",
+   "nb": 69,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "daun-mint",
+   "item": "daun mint",
+   "en": "mint",
+   "fr": "menthe",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 2,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar"
+   ]
+  },
+  {
+   "id": "daun-seledri",
+   "item": "daun seledri",
+   "en": "celery leaves",
+   "fr": "céleri",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 3,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "es-batu",
+   "item": "es batu",
+   "en": "ice",
+   "fr": "glace",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 10,
+   "choices": []
+  },
+  {
+   "id": "feta-cheese",
+   "item": "feta cheese",
+   "en": "feta cheese",
+   "fr": "féta (écrit « Veta CIS », « Peta cheese »)",
+   "cat": "laitier",
+   "type": "achetable-en-ligne",
+   "nb": 48,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "french-fries",
+   "item": "french fries",
+   "en": "frozen French fries",
+   "fr": "frites surgelées",
+   "cat": "protine",
+   "type": "achetable-en-ligne",
+   "nb": 53,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen",
+    "bar"
+   ]
+  },
+  {
+   "id": "garam",
+   "item": "garam",
+   "en": "salt",
+   "fr": "sel (Dolpin / Refina)",
+   "cat": "aromate",
+   "type": "achetable-en-ligne",
+   "nb": 14,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "gelas-plastik",
+   "item": "gelas plastik",
+   "en": "plastic cups",
+   "fr": "gobelets / cup plastik",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 1,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar",
+    "gudang-atas"
+   ]
+  },
+  {
+   "id": "glass-cleaner",
+   "item": "glass cleaner",
+   "en": "glass cleaner",
+   "fr": "nettoyeur vitre (Cling / Best Cling)",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 6,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "gudang-atas",
+    "gudang-bawah",
+    "bar"
+   ]
+  },
+  {
+   "id": "granola",
+   "item": "granola",
+   "en": "granola / muesli",
+   "fr": "granola / muesli",
+   "cat": "sucrerie",
+   "type": "achetable-en-ligne",
+   "nb": 23,
+   "choices": [
+    "A",
+    "N"
+   ]
+  },
+  {
+   "id": "gula-merah",
+   "item": "gula merah",
+   "en": "palm sugar",
+   "fr": "sucre de palme",
+   "cat": "aromate",
+   "type": "achetable-en-ligne",
+   "nb": 8,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "gula",
+   "item": "gula",
+   "en": "sugar",
+   "fr": "sucre",
+   "cat": "aromate",
+   "type": "achetable-en-ligne",
+   "nb": 4,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "isen",
+   "item": "isen",
+   "en": "to confirm (local spice root)",
+   "fr": "à confirmer (mot local, souvent avec jae/kunyit)",
+   "cat": "aromate",
+   "type": "frais/marche",
+   "nb": 6,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "jagung",
+   "item": "jagung",
+   "en": "corn",
+   "fr": "maïs",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 6,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "jahe",
+   "item": "jahe",
+   "en": "ginger",
+   "fr": "gingembre (dit « jae »)",
+   "cat": "aromate",
+   "type": "frais/marche",
+   "nb": 7,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "jeruk-manis",
+   "item": "jeruk manis",
+   "en": "sweet oranges",
+   "fr": "orange douce",
+   "cat": "fruit",
+   "type": "frais/marche",
+   "nb": 1,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar"
+   ]
+  },
+  {
+   "id": "jeruk-nipis",
+   "item": "jeruk nipis",
+   "en": "lime",
+   "fr": "citron vert",
+   "cat": "aromate",
+   "type": "frais/marche",
+   "nb": 35,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "jeruk-non-precise",
+   "item": "jeruk non precise",
+   "en": "citrus (type not specified)",
+   "fr": "agrume, variété non précisée",
+   "cat": "aromate",
+   "type": "frais/marche",
+   "nb": 1,
+   "choices": []
+  },
+  {
+   "id": "kacang-panjang",
+   "item": "kacang panjang",
+   "en": "long beans",
+   "fr": "haricots longs",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 3,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "kangkung",
+   "item": "kangkung",
+   "en": "water spinach",
+   "fr": "épinard d'eau",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 3,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "kantung-belanja",
+   "item": "kantung belanja",
+   "en": "shopping bags",
+   "fr": "sacs à courses",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 1,
+   "choices": []
+  },
+  {
+   "id": "kecap-manis",
+   "item": "kecap manis",
+   "en": "sweet soy sauce",
+   "fr": "sauce soja sucrée",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 28,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "keju-mozzarella",
+   "item": "keju mozzarella",
+   "en": "mozzarella",
+   "fr": "mozzarella (Morzella / Muzalera / Mozarella Chess)",
+   "cat": "laitier",
+   "type": "achetable-en-ligne",
+   "nb": 43,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "kemiri",
+   "item": "kemiri",
+   "en": "candlenuts",
+   "fr": "noix de bougie",
+   "cat": "aromate",
+   "type": "achetable-en-ligne",
+   "nb": 1,
+   "choices": []
+  },
+  {
+   "id": "kencur",
+   "item": "kencur",
+   "en": "kencur (aromatic ginger)",
+   "fr": "kencur",
+   "cat": "aromate",
+   "type": "frais/marche",
+   "nb": 5,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "kentang",
+   "item": "kentang",
+   "en": "potatoes",
+   "fr": "pomme de terre (dit « jepang »)",
+   "cat": "feculent",
+   "type": "frais/marche",
+   "nb": 28,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "kerupuk-udang",
+   "item": "kerupuk udang",
+   "en": "prawn crackers",
+   "fr": "galettes de crevettes",
+   "cat": "snack",
+   "type": "achetable-en-ligne",
+   "nb": 25,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "kol",
+   "item": "kol",
+   "en": "cabbage",
+   "fr": "chou",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 1,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "kopi",
+   "item": "kopi",
+   "en": "coffee",
+   "fr": "café (555 / Kapal Api / mix)",
+   "cat": "boisson",
+   "type": "achetable-en-ligne",
+   "nb": 27,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar"
+   ]
+  },
+  {
+   "id": "kunyit",
+   "item": "kunyit",
+   "en": "turmeric",
+   "fr": "curcuma",
+   "cat": "aromate",
+   "type": "frais/marche",
+   "nb": 9,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "labu-siam",
+   "item": "labu siam",
+   "en": "chayote",
+   "fr": "chayote",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 1,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "lada-bubuk",
+   "item": "lada bubuk",
+   "en": "ground pepper",
+   "fr": "poivre moulu",
+   "cat": "aromate",
+   "type": "achetable-en-ligne",
+   "nb": 7,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "lengkuas",
+   "item": "lengkuas",
+   "en": "galangal",
+   "fr": "galanga",
+   "cat": "aromate",
+   "type": "frais/marche",
+   "nb": 5,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "madu",
+   "item": "madu",
+   "en": "honey",
+   "fr": "miel",
+   "cat": "sucrerie",
+   "type": "achetable-en-ligne",
+   "nb": 15,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "makanan-kucing",
+   "item": "makanan kucing",
+   "en": "cat food",
+   "fr": "nourriture pour chats",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 9,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "gudang-atas"
+   ]
+  },
+  {
+   "id": "masako",
+   "item": "masako",
+   "en": "Masako seasoning",
+   "fr": "cube/assaisonnement Masako",
+   "cat": "aromate",
+   "type": "achetable-en-ligne",
+   "nb": 21,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "mayones",
+   "item": "mayones",
+   "en": "mayonnaise",
+   "fr": "mayonnaise",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 24,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "micin",
+   "item": "micin",
+   "en": "MSG",
+   "fr": "glutamate (Mesin / Micin)",
+   "cat": "aromate",
+   "type": "achetable-en-ligne",
+   "nb": 2,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "minyak-goreng",
+   "item": "minyak goreng Bimoli",
+   "en": "frying oil Bimoli",
+   "fr": "huile de friture (Bimoli/SunCoast)",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 49,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "molto",
+   "item": "molto",
+   "en": "fabric softener (Molto)",
+   "fr": "adoucissant Molto",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 23,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "laundry",
+    "gudang-atas",
+    "gudang-bawah"
+   ]
+  },
+  {
+   "id": "mustard-dijon",
+   "item": "mustard dijon",
+   "en": "Dijon mustard",
+   "fr": "moutarde de Dijon (Vilux)",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 27,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "nanas",
+   "item": "nanas",
+   "en": "pineapple",
+   "fr": "ananas",
+   "cat": "fruit",
+   "type": "frais/marche",
+   "nb": 81,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar"
+   ]
+  },
+  {
+   "id": "nutella",
+   "item": "nutella",
+   "en": "Nutella (chocolate spread)",
+   "fr": "pâte à tartiner",
+   "cat": "sucrerie",
+   "type": "achetable-en-ligne",
+   "nb": 52,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "olive-oil",
+   "item": "olive oil",
+   "en": "olive oil",
+   "fr": "huile d'olive (Mueloliva/Bertolli)",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 8,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "oregano",
+   "item": "oregano",
+   "en": "dried oregano",
+   "fr": "origan séché",
+   "cat": "aromate",
+   "type": "achetable-en-ligne",
+   "nb": 17,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "pepaya",
+   "item": "pepaya",
+   "en": "papaya",
+   "fr": "papaye",
+   "cat": "fruit",
+   "type": "frais/marche",
+   "nb": 66,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar"
+   ]
+  },
+  {
+   "id": "pisang",
+   "item": "pisang",
+   "en": "bananas",
+   "fr": "banane",
+   "cat": "fruit",
+   "type": "frais/marche",
+   "nb": 92,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar",
+    "kitchen"
+   ]
+  },
+  {
+   "id": "plastik-es-batu",
+   "item": "plastik es batu",
+   "en": "ice bags",
+   "fr": "sacs à glace",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 13,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar",
+    "kitchen",
+    "gudang-atas"
+   ]
+  },
+  {
+   "id": "plastik-sampah",
+   "item": "plastik sampah",
+   "en": "garbage bags",
+   "fr": "sacs poubelle",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 16,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "gudang-bawah",
+    "kitchen",
+    "gudang-atas"
+   ]
+  },
+  {
+   "id": "plastik-vrac",
+   "item": "plastik vrac",
+   "en": "bulk plastic bags (2/5/10 kg)",
+   "fr": "sacs vrac 2/5/10 kg",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 21,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen",
+    "gudang-bawah",
+    "gudang-atas"
+   ]
+  },
+  {
+   "id": "plastik-wrap",
+   "item": "plastik wrap",
+   "en": "cling film",
+   "fr": "film alimentaire",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 4,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "pocari",
+   "item": "pocari",
+   "en": "Pocari Sweat",
+   "fr": "Pocari Sweat",
+   "cat": "boisson",
+   "type": "achetable-en-ligne",
+   "nb": 32,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "pocoy",
+   "item": "pokcoy",
+   "en": "bok choy",
+   "fr": "pak-choï",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 1,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "prostex",
+   "item": "prostex",
+   "en": "Prostex disinfectant",
+   "fr": "désinfectant Prostex",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 30,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "laundry",
+    "gudang-bawah"
+   ]
+  },
+  {
+   "id": "rinso",
+   "item": "rinso",
+   "en": "laundry detergent (Rinso)",
+   "fr": "lessive",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 29,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "laundry"
+   ]
+  },
+  {
+   "id": "roti",
+   "item": "roti",
+   "en": "bread",
+   "fr": "pain / roti tawar",
+   "cat": "feculent",
+   "type": "achetable-en-ligne",
+   "nb": 1,
+   "choices": []
+  },
+  {
+   "id": "sabun",
+   "item": "sabun",
+   "en": "hand / body soap",
+   "fr": "savon main / body",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 5,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "gudang-atas"
+   ]
+  },
+  {
+   "id": "salad-oil",
+   "item": "salad oil",
+   "en": "salad oil",
+   "fr": "huile pour salade (Kroger)",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 49,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "santan-kara",
+   "item": "santan kara",
+   "en": "coconut milk (Kara)",
+   "fr": "lait de coco Kara",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 18,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "saos-asli",
+   "item": "saos asli",
+   "en": "local sauce (to confirm)",
+   "fr": "sauce locale (à confirmer)",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 7,
+   "choices": []
+  },
+  {
+   "id": "saos-sambal",
+   "item": "saos sambal",
+   "en": "chili sauce",
+   "fr": "sauce piment",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 26,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "saos-tiram",
+   "item": "saos tiram",
+   "en": "oyster sauce",
+   "fr": "sauce huître",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 20,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "saos-tomat",
+   "item": "saos tomat",
+   "en": "ketchup",
+   "fr": "Ketchup",
+   "cat": "sauce",
+   "type": "achetable-en-ligne",
+   "nb": 69,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "sayur-ijo",
+   "item": "sayur ijo",
+   "en": "green vegetables (to confirm)",
+   "fr": "légumes verts (variété à confirmer)",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 1,
+   "choices": [],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "selada",
+   "item": "selada",
+   "en": "lettuce",
+   "fr": "laitue (dont selada keriting)",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 86,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "sepon",
+   "item": "sepon",
+   "en": "dish sponges / steel wool",
+   "fr": "éponges vaisselle / spon besi",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 14,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "gudang-atas",
+    "gudang-bawah",
+    "kitchen",
+    "bar"
+   ]
+  },
+  {
+   "id": "skm",
+   "item": "skm",
+   "en": "sweetened condensed milk",
+   "fr": "lait concentré sucré",
+   "cat": "laitier",
+   "type": "achetable-en-ligne",
+   "nb": 10,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "slice-almond",
+   "item": "slice almond",
+   "en": "sliced almonds",
+   "fr": "amandes effilées",
+   "cat": "sucrerie",
+   "type": "achetable-en-ligne",
+   "nb": 7,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "soda-water",
+   "item": "soda water",
+   "en": "soda water",
+   "fr": "eau gazeuse",
+   "cat": "boisson",
+   "type": "achetable-en-ligne",
+   "nb": 9,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar"
+   ]
+  },
+  {
+   "id": "sprite",
+   "item": "sprite",
+   "en": "Sprite",
+   "fr": "Sprite",
+   "cat": "boisson",
+   "type": "achetable-en-ligne",
+   "nb": 2,
+   "choices": [],
+   "locs": [
+    "bar"
+   ]
+  },
+  {
+   "id": "sunlight",
+   "item": "sunlight",
+   "en": "dish soap (Sunlight)",
+   "fr": "liquide vaisselle",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 52,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "bar",
+    "kitchen"
+   ]
+  },
+  {
+   "id": "susu",
+   "item": "susu",
+   "en": "fresh milk",
+   "fr": "lait frais (Milk Life / Greenfields / Indomilk)",
+   "cat": "laitier",
+   "type": "achetable-en-ligne",
+   "nb": 35,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar"
+   ]
+  },
+  {
+   "id": "tahu",
+   "item": "tahu",
+   "en": "tofu",
+   "fr": "tofu",
+   "cat": "protine",
+   "type": "frais/marche",
+   "nb": 4,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "taoge",
+   "item": "taoge",
+   "en": "bean sprouts",
+   "fr": "germes de haricot",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 1,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "teh-celup",
+   "item": "teh celup",
+   "en": "tea bags",
+   "fr": "thé en sachet",
+   "cat": "aromate",
+   "type": "achetable-en-ligne",
+   "nb": 5,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "tempe",
+   "item": "tempe",
+   "en": "tempeh",
+   "fr": "tempeh",
+   "cat": "protine",
+   "type": "frais/marche",
+   "nb": 10,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "tepung-krispi",
+   "item": "tepung krispi",
+   "en": "crispy batter flour",
+   "fr": "farine croustillante",
+   "cat": "feculent",
+   "type": "achetable-en-ligne",
+   "nb": 3,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "tepung-roti",
+   "item": "tepung roti",
+   "en": "breadcrumbs",
+   "fr": "chapelure",
+   "cat": "feculent",
+   "type": "achetable-en-ligne",
+   "nb": 32,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "tepung-terigu",
+   "item": "tepung terigu",
+   "en": "wheat flour",
+   "fr": "farine de blé",
+   "cat": "feculent",
+   "type": "achetable-en-ligne",
+   "nb": 13,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "timun",
+   "item": "timun",
+   "en": "cucumber",
+   "fr": "concombre",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 90,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "tisu-makan",
+   "item": "tisu makan",
+   "en": "paper napkins",
+   "fr": "serviettes en papier",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 40,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "bar",
+    "kitchen"
+   ]
+  },
+  {
+   "id": "tisu-toilet",
+   "item": "tisu toilet",
+   "en": "toilet paper",
+   "fr": "papier toilette",
+   "cat": "menage",
+   "type": "achetable-en-ligne",
+   "nb": 3,
+   "choices": [
+    "A",
+    "N"
+   ],
+   "locs": [
+    "gudang-atas"
+   ]
+  },
+  {
+   "id": "tomat",
+   "item": "tomat",
+   "en": "tomatoes",
+   "fr": "tomate",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 110,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "udang",
+   "item": "udang",
+   "en": "shrimp",
+   "fr": "crevettes",
+   "cat": "protine",
+   "type": "frais/marche",
+   "nb": 3,
+   "choices": []
+  },
+  {
+   "id": "wortel",
+   "item": "wortel local",
+   "en": "carrots",
+   "fr": "carotte",
+   "cat": "legume",
+   "type": "frais/marche",
+   "nb": 30,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "kitchen"
+   ]
+  },
+  {
+   "id": "yogurt",
+   "item": "yogurt",
+   "en": "yogurt",
+   "fr": "yaourt (Biokul / Greenfields / Polaris)",
+   "cat": "laitier",
+   "type": "achetable-en-ligne",
+   "nb": 34,
+   "choices": [
+    "A"
+   ],
+   "locs": [
+    "bar"
+   ]
+  }
+ ]
+}
