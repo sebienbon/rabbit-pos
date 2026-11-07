@@ -74,9 +74,20 @@ par produit et par jour, et aura les achats (F) et les comptages (D).
   (peu de semaines, ou ingrédient qui ne suit aucun produit = part fixe).
 - Prix de revient : coût des ingrédients de la fiche (prix d'achat moyen pondéré des derniers achats) → coût portion,
   marge, % coût matière, par produit et par mois.
-- Prix d'achat : import du document de Sébastien (tableau des achats, rempli au fil de l'eau) — format à recevoir ;
-  plus tard alimenté automatiquement par un système plus global. L'import est conçu pour accepter plusieurs sources
-  (fichier, Google Sheet, API) qui écrivent toutes dans la même table d'achats.
+- Prix d'achat : Google Sheet de Sébastien **« Accounting Processor 2026 »** (lecture seule, on n'y écrit rien) :
+  - `Historic` : ~418 produits achetés (nom fournisseur, unité : Pcs / kg / pack / Botol / Dus / koli…, catégorie
+    Restaurant / Bar / Cleaning / Laundry / Guest's services / Maintenance…), un prix par date d'achat en colonnes.
+    Les en-têtes de date n'ont souvent pas d'année et mélangent les formats (« 08-03 », « 2025-10-08 », « 11-09 ») :
+    à fiabiliser avant de s'en servir pour des tendances.
+  - `Arya` : journal des achats faits avec Aria (date, produit, montant total, catégorie), depuis le 31/08/2026.
+    Pas de colonne quantité : quantité ≈ montant ÷ prix unitaire du moment (ex. feta 348 000 ÷ 87 000 = 4).
+  - `Augmentation` : premier prix 2025 / dernier prix 2026 / hausse en % (calculé).
+- **Produit acheté ≠ ingrédient** : table de liaison « produit fournisseur → ingrédient + contenu ». Plusieurs produits
+  pour un ingrédient (Kroger salad oil 3 L, Bimoli 5 L, Kunci Mas 5 L → huile), contenu lu dans le nom quand il y est
+  (3 L, 2 kg, 250 g), sinon saisi une fois (carton de N, botte ≈ X g). Rapprochement automatique proposé, validé par
+  le owner : essai du 07/11 = 92 des 98 consommables trouvés dans `Historic`.
+- Plus tard alimenté automatiquement par un système plus global. L'import est conçu pour accepter plusieurs sources
+  (Google Sheet, fichier, API) qui écrivent toutes dans la même table d'achats.
 - Le calcul tourne sur le PC la nuit (léger : quelques centaines de lignes par semaine) ; aucun service externe.
 
 ## Ce qu'il faudra de Sébastien
