@@ -69,6 +69,21 @@ les réglages sont pour le manager et le propriétaire.
 - Ensuite automatique : consommation réelle des semaines passées et de la même période l'an dernier,
   et nombre de clients présents (liste Rabbit-System) → consommation par nuitée.
 
+## Où vivent les données de stock (décision du 07/11/2026)
+Le Google Sheet existant **« Accounting Processor 2026 »** (id `1PjmpkYGyVunY9JvQvRqqcq9tpW-H3w662WXcfY6AV4g`)
+devient la référence partagée pour les achats et le stock, entre les modules (caisse, comptabilité, autres à venir).
+- Nouveaux onglets prévus, à côté des existants (on ne touche pas aux onglets actuels) : `Ingredients` (base des 98 +
+  nouveaux, catégorie, modes d'achat, lieux, commentaire), `Products` (produit fournisseur → ingrédient + contenu +
+  dernier prix), `Units`, `Locations`, `PurchaseModes`, puis `Recipes`, `Receipts` (réceptions), `Counts` (inventaires).
+- Les listes réglables (catégories, lieux, modes, unités) sont des onglets : le owner les modifie là ou dans le
+  back-office, c'est la même donnée.
+- Un script Apps Script dans ce Sheet sert d'API (comme `bridge/journal.gs` pour « POS Bar ») : la caisse lit les
+  ingrédients / produits / recettes et y écrit réceptions, comptages, consommations, toujours sous la bonne forme.
+  D'autres modules peuvent appeler le même script.
+- La caisse garde une copie locale (hors ligne, rapidité) et se resynchronise ; le Sheet fait foi pour ces listes.
+- Accès : le compte Google relié à Claude n'a que la lecture sur ce Sheet (07/11) ; pour qu'il crée les onglets,
+  Sébastien le partage en « Éditeur » avec ce compte, ou colle un script fourni.
+
 ## H. Estimation de la consommation et prix de revient (owner)
 Demande du 07/11/2026. Pour les ingrédients sans grammage fiable (huile de friture, sel, liquide vaisselle…),
 la caisse estime elle-même la consommation à partir de l'historique, sans outil externe : elle a déjà les ventes
